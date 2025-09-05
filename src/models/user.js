@@ -17,12 +17,18 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
+      validate: { isEmail: true },
+    },
+    role: {
+      type: DataTypes.ENUM("DOCENTE", "DIRECTIVO"),
+      allowNull: false,
+      defaultValue: "DOCENTE",
     },
   },
   {
     tableName: "users",
     timestamps: false, // si no tienes createdAt/updatedAt
-  },
+  }
 );
 
 module.exports = User;
