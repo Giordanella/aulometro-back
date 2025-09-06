@@ -2,11 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import sequelize from "./config/db.js";
 import userRoutes from "./routes/users.js";
+import cors from "cors";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// CORS
+app.use(cors());
 
 // Middleware
 app.use(express.json());
