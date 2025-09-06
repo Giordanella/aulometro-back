@@ -1,7 +1,9 @@
-const express = require("express");
-require("dotenv").config();
-const sequelize = require("./config/db");
-const userRoutes = require("./routes/users");
+import express from "express";
+import dotenv from "dotenv";
+import sequelize from "./config/db.js";
+import userRoutes from "./routes/users.js";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +20,7 @@ app.use("/users", userRoutes);
     await sequelize.authenticate();
     console.log("✅ Conectado a MySQL con Sequelize");
 
-    await sequelize.sync(); // crea tablas si no existen (equiv. hibernate.hbm2ddl.auto=update)
+    await sequelize.sync();
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

@@ -1,7 +1,8 @@
+import express from "express";
 import { requireRole } from "../middlewares/requireRole.js";
-const express = require("express");
+import * as userService from "../services/userService.js";
+
 const router = express.Router();
-const userService = require("../services/userService");
 
 // GET /users
 router.get("/", requireRole("DIRECTIVO"), async (req, res) => {
@@ -59,7 +60,7 @@ router.post("/", requireRole("DIRECTIVO"), async (req, res) => {
   }
 });
 
-// PUT /users/:id (actualizar usuario por ID)
+// PUT /users/:id
 router.put("/:id", requireRole("DIRECTIVO"), async (req, res) => {
   try {
     const user = await userService.updateById(req.params.id, req.body);
@@ -69,11 +70,11 @@ router.put("/:id", requireRole("DIRECTIVO"), async (req, res) => {
   }
 });
 
-// GET /users/docentes (solo directivos)
+// GET /users/docentes
 router.get("/docentes", requireRole("DIRECTIVO"), async (req, res) => {
   try {
     const { page, pageSize } = req.query;
-    const data = await svc.listDocentes({
+    const data = await userService.listDocentes({
       page: Number(page) || 1,
       pageSize: Number(pageSize) || 20,
     });
@@ -83,4 +84,4 @@ router.get("/docentes", requireRole("DIRECTIVO"), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

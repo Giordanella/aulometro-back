@@ -1,22 +1,22 @@
-const User = require("../models/user");
+import User from "../models/user.js";
 
-async function findAll() {
+export async function findAll() {
   return await User.findAll();
 }
 
-async function save(userData) {
+export async function save(userData) {
   return await User.create(userData);
 }
 
-async function findById(userId) {
+export async function findById(userId) {
   return await User.findByPk(userId);
 }
 
-async function removeById(userId) {
+export async function removeById(userId) {
   return await User.destroy({ where: { id: userId } });
 }
 
-async function removeAll() {
+export async function removeAll() {
   const deleted = await User.count();
   await User.destroy({
     where: {},
@@ -25,7 +25,7 @@ async function removeAll() {
   return deleted;
 }
 
-async function updateById(userId, userData) {
+export async function updateById(userId, userData) {
   try {
     const user = await User.findByPk(userId);
     await user.update(userData);
@@ -35,12 +35,12 @@ async function updateById(userId, userData) {
   }
 }
 
-//crear docente -> en routes se valida que el que llama a esta funcion sea directivo
-async function createDocente({ nombre, email }) {
+// Crear docente (en rutas se valida el rol)
+export async function createDocente({ nombre, email }) {
   return User.create({ nombre, email, role: "DOCENTE" });
 }
 
-async function listDocentes({ page = 1, pageSize = 20 } = {}) {
+export async function listDocentes({ page = 1, pageSize = 20 } = {}) {
   const offset = (page - 1) * pageSize;
   const { rows, count } = await User.findAndCountAll({
     where: { role: "DOCENTE" },
@@ -51,14 +51,3 @@ async function listDocentes({ page = 1, pageSize = 20 } = {}) {
   });
   return { rows, count, page, pageSize };
 }
-
-module.exports = {
-  findAll,
-  save,
-  findById,
-  removeById,
-  removeAll,
-  updateById,
-  createDocente,
-  listDocentes,
-};
