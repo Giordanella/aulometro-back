@@ -19,6 +19,11 @@ const User = sequelize.define(
       unique: true,
       validate: { isEmail: true },
     },
+    passwordHash: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      field: "password_hash",
+    },
     role: {
       type: DataTypes.ENUM("DOCENTE", "DIRECTIVO"),
       allowNull: false,
@@ -28,7 +33,7 @@ const User = sequelize.define(
   {
     tableName: "users",
     timestamps: false,
-  },
+  }
 );
 
 export default User;

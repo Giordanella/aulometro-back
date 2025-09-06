@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import sequelize from "./config/db.js";
+import authRouter from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import cors from "cors";
 
@@ -17,6 +18,7 @@ app.use(express.json());
 
 // Rutas
 app.use("/users", userRoutes);
+app.use("/auth", authRouter);
 
 // Sync DB y levantar servidor
 (async () => {
@@ -24,7 +26,7 @@ app.use("/users", userRoutes);
     await sequelize.authenticate();
     console.log("✅ Conectado a MySQL con Sequelize");
 
-    await sequelize.sync();
+    await sequelize.sync({ alter: true }); //ajusta la tabla users segun el modelo
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

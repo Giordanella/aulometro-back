@@ -1,4 +1,7 @@
 import User from "../models/user.js";
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 10; // parametro para hashear password en createUser
 
 export async function findById(userId) {
   return await User.findByPk(userId);
@@ -8,8 +11,19 @@ export async function findAll() {
   return await User.findAll();
 }
 
-export async function save(userData) {
-  return await User.create(userData);
+export async function createUser(userData) {
+  const { password, ...rest } = userData; // separo la password del resto
+  if (!password) throw new Error("password requiered");
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+  const user = await User.create({
+    ...rest,
+    passwordHash, // se guarda el hash, no la contraseña cruda
+  });
+  // para no exponer el hash al devolver el user
+  const plain = user.get({ plain: true });
+  delete plain.passwordHash;
+
+  return plain;
 }
 
 export async function updateById(userId, userData) {
@@ -33,11 +47,6 @@ export async function removeAll() {
     truncate: true,
   });
   return deleted;
-}
-
-// Crear docente (en rutas se valida el rol)
-export async function createDocente({ nombre, email }) {
-  return User.create({ nombre, email, role: "DOCENTE" });
 }
 
 export async function listDocentes({ page = 1, pageSize = 20 } = {}) {

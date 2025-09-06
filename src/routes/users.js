@@ -8,8 +8,8 @@ const router = express.Router();
  * Es importante que la ruta GET /users/docentes esté definida antes que la ruta GET /users/:id,
  * ya que Express evalúa las rutas en el orden en que se definen. Si /docentes se colocara después
  * de /:id, una solicitud a /users/docentes coincidiría erróneamente con el patrón dinámico /:id,
- * interpretando "docentes" como un ID de usuario. Esto puede provocar errores o respuestas 
- * incorrectas. Por lo tanto, siempre se deben definir primero las rutas más específicas para evitar 
+ * interpretando "docentes" como un ID de usuario. Esto puede provocar errores o respuestas
+ * incorrectas. Por lo tanto, siempre se deben definir primero las rutas más específicas para evitar
  * conflictos con rutas más generales o dinámicas.
  */
 
@@ -53,7 +53,7 @@ router.get("/", requireRole("DIRECTIVO"), async (req, res) => {
 // POST /users
 router.post("/", requireRole("DIRECTIVO"), async (req, res) => {
   try {
-    const user = await userService.save(req.body);
+    const user = await userService.createUser(req.body);
     res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
