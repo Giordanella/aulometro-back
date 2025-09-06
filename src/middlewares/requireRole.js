@@ -2,7 +2,7 @@
 
 export function requireRole(...allowedRoles) {
   return (req, res, next) => {
-    const role = req.header("x-role"); // TEMPORAL: mientras no haya auth real, lee el rol de un header
+    const role = req.header("role"); // TEMPORAL: mientras no haya auth real, lee el rol de un header
     if (!role || !allowedRoles.includes(role)) {
       return res.status(403).json({ message: "Access denied" });
     }

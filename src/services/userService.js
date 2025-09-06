@@ -1,5 +1,9 @@
 import User from "../models/user.js";
 
+export async function findById(userId) {
+  return await User.findByPk(userId);
+}
+
 export async function findAll() {
   return await User.findAll();
 }
@@ -8,8 +12,14 @@ export async function save(userData) {
   return await User.create(userData);
 }
 
-export async function findById(userId) {
-  return await User.findByPk(userId);
+export async function updateById(userId, userData) {
+  try {
+    const user = await User.findByPk(userId);
+    await user.update(userData);
+    return user;
+  } catch (error) {
+    throw new Error("User not found");
+  }
 }
 
 export async function removeById(userId) {
@@ -25,16 +35,6 @@ export async function removeAll() {
   return deleted;
 }
 
-export async function updateById(userId, userData) {
-  try {
-    const user = await User.findByPk(userId);
-    await user.update(userData);
-    return user;
-  } catch (error) {
-    throw new Error("User not found");
-  }
-}
-
 // Crear docente (en rutas se valida el rol)
 export async function createDocente({ nombre, email }) {
   return User.create({ nombre, email, role: "DOCENTE" });
@@ -44,7 +44,7 @@ export async function listDocentes({ page = 1, pageSize = 20 } = {}) {
   const offset = (page - 1) * pageSize;
   const { rows, count } = await User.findAndCountAll({
     where: { role: "DOCENTE" },
-    attributes: ["id", "nombre", "email", "role"],
+    attributes: ["id", "name", "email", "role"],
     order: [["id", "ASC"]],
     limit: pageSize,
     offset,
