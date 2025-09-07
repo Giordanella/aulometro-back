@@ -3,8 +3,8 @@ import * as authService from "../services/authService.js";
 
 const router = Router();
 
-// POST /auth/login
-router.post("/login", async (req, res) => {
+// POST /login
+router.post("/", async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -13,7 +13,14 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await authService.loginWithEmailPassword(email, password);
-    res.json({ message: "Login successful", user });
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role, //sacamos el rol del user para saber a que dashboard redirigir
+      },
+    });
   } catch (err) {
     if (err.message === "User not found") {
       return res.status(404).json({ error: err.message });

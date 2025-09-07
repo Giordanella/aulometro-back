@@ -18,7 +18,7 @@ app.use(express.json());
 
 // Rutas
 app.use("/users", userRoutes);
-app.use("/auth", authRouter);
+app.use("/login", authRouter);
 
 // Sync DB y levantar servidor
 (async () => {
