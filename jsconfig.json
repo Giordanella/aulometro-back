@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "types": ["jest", "node"],
+    "module": "esnext",
+    "target": "es2022",
+    "moduleResolution": "bundler"
+  },
+  "include": ["**/*.js"],
+  "exclude": ["node_modules", "aulometro-front"]
+}
+
