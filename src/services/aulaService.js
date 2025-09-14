@@ -84,50 +84,16 @@ export async function createAula(payload) {
 
 /**
  * Lista aulas con filtros y paginación
- * @param {ListParams=} params
  */
-export async function listAulas(params = {}) {
-  const { q, conProyector, minCapacidad, page = 1, pageSize = 20 } = params;
-
-  /** @type {any} */
-  const where = {};
-
-  if (q) {
-    const numeroNum = Number(q);
-    where[Op.or] = [
-      ...(Number.isFinite(numeroNum) ? [{ numero: numeroNum }] : []),
-      { ubicacion: { [Op.like]: `%${q}%` } },
-    ];
-  }
-
-  if (conProyector !== undefined) {
-    where.tieneProyector = conProyector === true || conProyector === "true";
-  }
-
-  if (minCapacidad !== undefined) {
-    const minCap = Number(minCapacidad);
-    if (Number.isFinite(minCap)) {
-      where.capacidad = { [Op.gte]: minCap };
-    }
-  }
-
-  const limit = Math.max(1, Number(pageSize));
-  const offset = Math.max(0, (Number(page) - 1) * limit);
-
+export async function listAulas({ page = 1, pageSize = 20 } = {}) {
+  const offset = (page - 1) * pageSize;
   const { rows, count } = await Aula.findAndCountAll({
-    where,
-    order: [["numero", "ASC"]],
-    limit,
+    attributes: ["id", "numero", "ubicacion", "capacidad", "computadoras", "tieneProyector", "estado"],
+    order: [["id", "ASC"]],
+    limit: pageSize,
     offset,
   });
-
-  return {
-    items: rows,
-    total: count,
-    page: Number(page),
-    pageSize: limit,
-    totalPages: Math.max(1, Math.ceil(count / limit)),
-  };
+  return { rows, count, page, pageSize };
 }
 
 /**

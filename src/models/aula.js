@@ -49,7 +49,7 @@ const Aula = sequelize.define(
           msg: "La cantidad de computadoras no puede ser negativa",
         },
         isMenorQueCapacidad(value) {
-          if (value > this.capacidad) {
+          if (Number(value) > Number(this.capacidad)) {
             throw new Error("Las computadoras no pueden ser más que la capacidad del aula");
           }
         },

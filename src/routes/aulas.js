@@ -1,5 +1,6 @@
 import express from "express";
 import Aula from "../models/aula.js";
+import aulaService from "../services/aulaService.js";
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.post("/", async (req, res) => {
 // Listar todas
 router.get("/", async (req, res) => {
   try {
-    const aulas = await Aula.findAll();
+    const aulas = await aulaService.listAulas();
     res.json(aulas);
   } catch (err) {
     console.error(err);
