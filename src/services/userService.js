@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10; // parametro para hashear password en createUser
 
+
 export async function findById(userId) {
   return await User.findByPk(userId);
 }

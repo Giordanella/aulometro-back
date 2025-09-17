@@ -4,6 +4,7 @@ import sequelize from "./config/db.js";
 import authRouter from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import cors from "cors";
+import busquedaRoutes from "./routes/busquedaRoutes.js"
 
 // Importá el modelo y las rutas de aulas (usando minúsculas)
 import Aula from "./models/aula.js";
@@ -29,6 +30,7 @@ app.use(express.json());
 app.use("/users", userRoutes);
 app.use("/login", authRouter);
 app.use("/aulas", aulaRoutes); // ← nueva ruta
+app.use("/busqueda", busquedaRoutes); // ← nueva ruta
 
 // Sync DB y levantar servidor
 (async () => {
