@@ -1,0 +1,39 @@
+name: Branch Protection Rules
+
+on:
+  pull_request:
+    branches:
+      - master
+      - development
+
+jobs:
+  validate-branch-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect source/target branches
+        run: |
+          echo "Target: ${{ github.base_ref }}"
+          echo "Source: ${{ github.head_ref }}"
+
+      - name: Enforce rules
+        run: |
+          TARGET="${{ github.base_ref }}"
+          SOURCE="${{ github.head_ref }}"
+
+          # Caso 1: PR hacia development → solo desde feature/*
+          if [[ "$TARGET" == "development" ]]; then
+            if [[ ! "$SOURCE" =~ ^feature/ ]]; then
+              echo "❌ Solo se permiten PRs hacia development desde ramas feature/*"
+              exit 1
+            fi
+            echo "✅ PR válido hacia development"
+          fi
+
+          # Caso 2: PR hacia master → solo desde development
+          if [[ "$TARGET" == "master" ]]; then
+            if [[ "$SOURCE" != "development" ]]; then
+              echo "❌ Solo se permiten PRs hacia master desde development"
+              exit 1
+            fi
+            echo "✅ PR válido hacia master"
+          fi
