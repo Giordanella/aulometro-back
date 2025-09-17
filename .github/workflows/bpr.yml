@@ -9,7 +9,7 @@ on:
 jobs:
   validate-branch-rules:
     runs-on: ubuntu-latest
-    steps:
+    steps: 
       - name: Detect source/target branches
         run: |
           echo "Target: ${{ github.base_ref }}"
