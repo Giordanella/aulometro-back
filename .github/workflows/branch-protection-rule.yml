@@ -3,8 +3,8 @@ name: Branch Protection Rules
 on:
   pull_request:
     branches:
-      - master
-      - development
+      - main
+      - develop
 
 jobs:
   validate-branch-rules:
@@ -20,20 +20,20 @@ jobs:
           TARGET="${{ github.base_ref }}"
           SOURCE="${{ github.head_ref }}"
 
-          # Caso 1: PR hacia development → solo desde feature/*
-          if [[ "$TARGET" == "development" ]]; then
+          # Caso 1: PR hacia develop → solo desde feature/*
+          if [[ "$TARGET" == "develop" ]]; then
             if [[ ! "$SOURCE" =~ ^feature/ ]]; then
-              echo "❌ Solo se permiten PRs hacia development desde ramas feature/*"
+              echo "❌ Solo se permiten PRs hacia develop desde ramas feature/*"
               exit 1
             fi
-            echo "✅ PR válido hacia development"
+            echo "✅ PR válido hacia develop"
           fi
 
-          # Caso 2: PR hacia master → solo desde development
-          if [[ "$TARGET" == "master" ]]; then
-            if [[ "$SOURCE" != "development" ]]; then
-              echo "❌ Solo se permiten PRs hacia master desde development"
+          # Caso 2: PR hacia main → solo desde develop
+          if [[ "$TARGET" == "main" ]]; then
+            if [[ "$SOURCE" != "develop" ]]; then
+              echo "❌ Solo se permiten PRs hacia main desde develop"
               exit 1
             fi
-            echo "✅ PR válido hacia master"
+            echo "✅ PR válido hacia main"
           fi
