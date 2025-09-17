@@ -1,0 +1,16 @@
+DB_NAME=aulometro
+DB_USER=root
+DB_PASS=root
+DB_HOST=localhost
+
+#DB_NAME="railway"
+#DB_USER="root"
+#DB_PASS="khfccctZOAdJGOcvOUFuFhSqGeTBuowj"
+#DB_HOST="shortline.proxy.rlwy.net"
+#DB_PORT="34053"
+
+PORT=3000
+
+FRONTEND_URL=http://localhost:5173
+
+#FRONTEND_URL=https://aulometro-front.vercel.app

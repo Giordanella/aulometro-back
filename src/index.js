@@ -29,6 +29,7 @@ app.use(express.json());
 app.use("/users", userRoutes);
 app.use("/login", authRouter);
 app.use("/aulas", aulaRoutes); // ← nueva ruta
+app.use("/busqueda", busquedaRoutes); // ← nueva ruta
 
 // Sync DB y levantar servidor
 (async () => {
