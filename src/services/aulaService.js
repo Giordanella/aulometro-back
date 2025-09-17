@@ -56,6 +56,19 @@ function normalizePayload(payload = {}) {
   return /** @type {Required<Pick<AulaPayload,"estado">> & Partial<AulaPayload>} */ (data);
 }
 
+export async function buscarPorNumero (payload){
+  //proposito:devuelve un aula con el numero ingresado
+  const numero = Number(payload.numero);
+  if (isNaN(numero)) {
+    throw new HttpError(400, "El número de aula es inválido");
+  }
+  const aula = await Aula.findOne({ where: { numero } });
+  if (!aula) {
+    throw new HttpError(404, `No se encontró un aula con el número ${numero}`);
+  }
+  return aula;
+}
+
 /**
  * Crea un aula (valida campos mínimos y unicidad de `numero`)
  * @param {AulaPayload} payload
@@ -66,6 +79,7 @@ export async function createAula(payload) {
   if (data.numero == null || !data.ubicacion || data.capacidad == null) {
     throw new HttpError(400, "numero, ubicacion y capacidad son obligatorios");
   }
+
 
   const exists = await Aula.findOne({ where: { numero: data.numero } });
   if (exists) throw new HttpError(409, `Ya existe un aula con el número ${data.numero}`);
@@ -157,5 +171,6 @@ export default {
   getAulaById,
   updateAula,
   deleteAula,
+  buscarPorNumero,
   HttpError,
 };
