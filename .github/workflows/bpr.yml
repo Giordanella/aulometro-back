@@ -20,10 +20,10 @@ jobs:
           TARGET="${{ github.base_ref }}"
           SOURCE="${{ github.head_ref }}"
 
-          # Caso 1: PR hacia develop → solo desde feature/*
+          # Caso 1: PR hacia develop → solo desde feature/* o fix/*
           if [[ "$TARGET" == "develop" ]]; then
-            if [[ ! "$SOURCE" =~ ^feature/ ]]; then
-              echo "❌ Solo se permiten PRs hacia develop desde ramas feature/*"
+            if [[ ! "$SOURCE" =~ ^(feature|fix)/ ]]; then
+              echo "❌ Solo se permiten PRs hacia develop desde ramas feature/* o fix/*"
               exit 1
             fi
             echo "✅ PR válido hacia develop"
