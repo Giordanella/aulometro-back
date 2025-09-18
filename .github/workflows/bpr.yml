@@ -1,4 +1,4 @@
-name: Branch Protection Rules
+name: BranchProtectionRules
 
 on:
   pull_request:
