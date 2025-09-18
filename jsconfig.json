@@ -9,4 +9,3 @@
   "include": ["**/*.js"],
   "exclude": ["node_modules", "aulometro-front"]
 }
-

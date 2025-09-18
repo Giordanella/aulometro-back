@@ -47,24 +47,27 @@ function normalizePayload(payload = {}) {
 
   if (data.numero !== undefined) data.numero = Number(data.numero);
   if (data.capacidad !== undefined) data.capacidad = Number(data.capacidad);
-  if (data.computadoras !== undefined) data.computadoras = Number(data.computadoras);
+  if (data.computadoras !== undefined)
+    data.computadoras = Number(data.computadoras);
   if (data.tieneProyector !== undefined)
-    data.tieneProyector = data.tieneProyector === true || data.tieneProyector === "true";
+    data.tieneProyector =
+      data.tieneProyector === true || data.tieneProyector === "true";
 
   if (!data.estado) data.estado = "disponible";
 
-  return /** @type {Required<Pick<AulaPayload,"estado">> & Partial<AulaPayload>} */ (data);
+  return /** @type {Required<Pick<AulaPayload,"estado">> & Partial<AulaPayload>} */ (
+    data
+  );
 }
 
-export async function buscarPorNumero (payload){
+export async function buscarPorNumero(n) {
   //proposito:devuelve un aula con el numero ingresado
-  const numero = Number(payload.numero);
-  if (isNaN(numero)) {
+  if (!Number.isInteger(n) || n <= 0) {
     throw new HttpError(400, "El número de aula es inválido");
   }
-  const aula = await Aula.findOne({ where: { numero } });
+  const aula = await Aula.findOne({ where: { numero: n } });
   if (!aula) {
-    throw new HttpError(404, `No se encontró un aula con el número ${numero}`);
+    throw new HttpError(404, `No se encontró un aula con el número ${n}`);
   }
   return aula;
 }
@@ -80,9 +83,9 @@ export async function createAula(payload) {
     throw new HttpError(400, "numero, ubicacion y capacidad son obligatorios");
   }
 
-
   const exists = await Aula.findOne({ where: { numero: data.numero } });
-  if (exists) throw new HttpError(409, `Ya existe un aula con el número ${data.numero}`);
+  if (exists)
+    throw new HttpError(409, `Ya existe un aula con el número ${data.numero}`);
 
   const aula = await Aula.create({
     numero: /** @type {number} */ (data.numero),
@@ -102,7 +105,15 @@ export async function createAula(payload) {
 export async function listAulas({ page = 1, pageSize = 20 } = {}) {
   const offset = (page - 1) * pageSize;
   const { rows, count } = await Aula.findAndCountAll({
-    attributes: ["id", "numero", "ubicacion", "capacidad", "computadoras", "tieneProyector", "estado"],
+    attributes: [
+      "id",
+      "numero",
+      "ubicacion",
+      "capacidad",
+      "computadoras",
+      "tieneProyector",
+      "estado",
+    ],
     order: [["id", "ASC"]],
     limit: pageSize,
     offset,
@@ -138,7 +149,11 @@ export async function updateAula(id, payload) {
   // Si cambia el número, validar unicidad
   if (data.numero !== undefined && data.numero !== current.numero) {
     const exists = await Aula.findOne({ where: { numero: data.numero } });
-    if (exists) throw new HttpError(409, `Ya existe un aula con el número ${data.numero}`);
+    if (exists)
+      throw new HttpError(
+        409,
+        `Ya existe un aula con el número ${data.numero}`
+      );
   }
 
   await aula.update({
@@ -147,7 +162,9 @@ export async function updateAula(id, payload) {
     capacidad: data.capacidad ?? current.capacidad,
     computadoras: data.computadoras ?? current.computadoras,
     tieneProyector:
-      data.tieneProyector !== undefined ? data.tieneProyector : current.tieneProyector,
+      data.tieneProyector !== undefined
+        ? data.tieneProyector
+        : current.tieneProyector,
     estado: data.estado ?? current.estado,
   });
 
