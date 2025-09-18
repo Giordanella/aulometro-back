@@ -60,6 +60,7 @@ function normalizePayload(payload = {}) {
   );
 }
 
+//====================================== BUSQUEDA ==================================================================//
 export async function buscarPorNumero(n) {
   //proposito:devuelve un aula con el numero ingresado
   if (!Number.isInteger(n) || n <= 0) {
@@ -71,6 +72,17 @@ export async function buscarPorNumero(n) {
   }
   return aula;
 }
+
+export async function buscarPorCapacidad(minCapacidad) {
+  const aulas = await Aula.findAll({
+    where: { capacidad: { [Op.gte]: minCapacidad } },
+    order: [["capacidad", "ASC"]],
+  });
+
+  return aulas;
+}
+
+//========================================C.R.U.D==========================================================//
 
 /**
  * Crea un aula (valida campos mínimos y unicidad de `numero`)
