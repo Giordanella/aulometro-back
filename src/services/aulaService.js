@@ -60,17 +60,69 @@ function normalizePayload(payload = {}) {
   );
 }
 
-export async function buscarPorNumero(n) {
-  //proposito:devuelve un aula con el numero ingresado
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new HttpError(400, "El número de aula es inválido");
-  }
-  const aula = await Aula.findOne({ where: { numero: n } });
-  if (!aula) {
-    throw new HttpError(404, `No se encontró un aula con el número ${n}`);
-  }
-  return aula;
+//====================================== BUSQUEDA ==================================================================//
+
+// Convierte strings de la query a booleanos reales
+function parseBool(v) {
+  if (v === undefined) return undefined;
+  const s = String(v).toLowerCase();
+  if (["true", "1", "si", "sí", "yes"].includes(s)) return true;
+  if (["false", "0", "no"].includes(s)) return false;
+  return undefined;
 }
+
+/** Filtros admitidos (todos opcionales, vía query string):
+ * numero, ubicacion (like), capacidadMin,
+ * computadorasMin, tieneProyector, estado*/
+
+const PAGE_SIZE = 50;
+
+export async function buscarAulas(filters = {}) {
+  /** @type {Record<string, any>} */
+  const where = {}; //WHERE dinamico.
+
+  if (filters.numero !== undefined) {
+    const n = Number(filters.numero);
+    if (!Number.isNaN(n)) where.numero = n;
+  }
+
+  if (filters.ubicacion) {
+    const u = String(filters.ubicacion).trim();
+    if (u) where.ubicacion = { [Op.like]: `%${u}%` };
+  }
+
+  if (filters.capacidadMin !== undefined) {
+    const capMin = Number(filters.capacidadMin);
+    if (!Number.isNaN(capMin)) {
+      where.capacidad = { [Op.gte]: capMin };
+    }
+  }
+
+  if (filters.computadorasMin !== undefined) {
+    const compMin = Number(filters.computadorasMin);
+    if (!Number.isNaN(compMin)) {
+      where.computadoras = { [Op.gte]: compMin };
+    }
+  }
+
+  const proy = parseBool(filters.tieneProyector);
+  if (proy !== undefined) where.tieneProyector = proy;
+
+  if (filters.estado) {
+    const e = String(filters.estado).trim();
+    if (e) where.estado = e;
+  }
+
+  const aulas = await Aula.findAll({
+    where,
+    limit: PAGE_SIZE,
+    order: [["numero", "ASC"]],
+  });
+
+  return aulas.map((a) => a.get({ plain: true }));
+}
+
+//========================================C.R.U.D==========================================================//
 
 /**
  * Crea un aula (valida campos mínimos y unicidad de `numero`)
@@ -188,6 +240,6 @@ export default {
   getAulaById,
   updateAula,
   deleteAula,
-  buscarPorNumero,
+  buscarAulas,
   HttpError,
 };
