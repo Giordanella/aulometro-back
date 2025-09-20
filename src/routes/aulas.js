@@ -7,10 +7,13 @@ const router = express.Router();
 // Crear
 router.post("/", async (req, res) => {
   try {
-    const { numero, ubicacion, capacidad, computadoras, tieneProyector } = req.body;
+    const { numero, ubicacion, capacidad, computadoras, tieneProyector } =
+      req.body;
 
     if (!numero || !ubicacion || !capacidad) {
-      return res.status(400).json({ error: "numero, ubicacion y capacidad son obligatorios" });
+      return res
+        .status(400)
+        .json({ error: "numero, ubicacion y capacidad son obligatorios" });
     }
 
     const nuevaAula = await Aula.create({
