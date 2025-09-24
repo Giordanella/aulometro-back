@@ -36,7 +36,8 @@ app.use("/busqueda", busquedaRoutes);
     await sequelize.authenticate();
     console.log("✅ Conectado a MySQL con Sequelize");
 
-    await sequelize.sync({ alter: true }); // crea/ajusta tablas (users, aulas, etc.)
+    // await sequelize.sync({ alter: true });
+    await sequelize.sync(); // solo crea tablas si no existen
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
