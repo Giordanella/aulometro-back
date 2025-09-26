@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
+import { USER_ROLES } from "../config/roles.js";
 
 const User = sequelize.define(
   "User",
@@ -25,9 +26,9 @@ const User = sequelize.define(
       field: "password_hash",
     },
     role: {
-      type: DataTypes.ENUM("DOCENTE", "DIRECTIVO"),
+      type: DataTypes.ENUM(USER_ROLES.DOCENTE, USER_ROLES.DIRECTIVO),
       allowNull: false,
-      defaultValue: "DOCENTE",
+      defaultValue: USER_ROLES.DOCENTE,
     },
   },
   {

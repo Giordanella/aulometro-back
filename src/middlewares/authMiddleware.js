@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { USER_ROLES } from "../config/roles.js";
 import { findById } from "../services/userService.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -15,7 +16,7 @@ export const checkRole = (role) => {
   return async (req, res, next) => {
     try {
       // Ruta pública
-      if (role === "public") return next();
+      if (role === USER_ROLES.PUBLIC) return next();
 
       // Verificar header
       const authHeader = req.headers.authorization;
