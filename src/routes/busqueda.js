@@ -15,6 +15,6 @@ const router = express.Router();
  *   computadorasMin=0&
  *   tieneProyector=true
  */
-router.get("/aulas", checkRole(USER_ROLES.PUBLIC), busquedaController.buscarAulas);
+router.get("/aulas", checkRole(USER_ROLES.AUTHENTICATED), busquedaController.buscarAulas);
 
 export default router;
