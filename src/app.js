@@ -1,43 +1,41 @@
 import express from "express";
 import dotenv from "dotenv";
 import sequelize from "./config/db.js";
+
 import authRouter from "./routes/auth.js";
-import userRoutes from "./routes/users.js";
+import userRouter from "./routes/users.js";
+import busquedaRouter from "./routes/busqueda.js";
+import aulaRouter from "./routes/aulas.js";
+
 import cors from "cors";
-import busquedaRoutes from "./routes/busqueda.js";
-import Aula from "./models/aula.js";
-import aulaRoutes from "./routes/aulas.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL, // ej: http://localhost:5173
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   })
 );
 
-// Middleware
 app.use(express.json());
 
 // Rutas
-app.use("/users", userRoutes);
 app.use("/login", authRouter);
-app.use("/aulas", aulaRoutes);
-app.use("/busqueda", busquedaRoutes);
+app.use("/users", userRouter);
+app.use("/busqueda", busquedaRouter);
+app.use("/aulas", aulaRouter);
 
-// Sync DB y levantar servidor
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ Conectado a MySQL con Sequelize");
 
-    // await sequelize.sync({ alter: true });
-    await sequelize.sync(); // solo crea tablas si no existen
+    await sequelize.sync();
+    console.log("✅ Sincronización de modelos completada");
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
