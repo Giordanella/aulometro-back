@@ -1,21 +1,23 @@
 import express from "express";
+import { USER_ROLES } from "../config/roles.js";
+import { checkRole } from "../middlewares/authMiddleware.js";
 import * as aulaController from "../controllers/aulaController.js";
 
 const router = express.Router();
 
-// Crear
-router.post("/", aulaController.createAula);
+// POST /aulas
+router.post("/", checkRole(USER_ROLES.PUBLIC), aulaController.createAula);
 
-// Listar todas
-router.get("/", aulaController.getAllAulas);
+// GET /aulas
+router.get("/", checkRole(USER_ROLES.PUBLIC), aulaController.getAllAulas);
 
-// Obtener por id
-router.get("/:id", aulaController.getAula);
+// GET /aulas/:id
+router.get("/:id", checkRole(USER_ROLES.PUBLIC), aulaController.getAula);
 
-// Actualizar
-router.put("/:id", aulaController.updateAula);
+// PUT /aulas/:id
+router.put("/:id", checkRole(USER_ROLES.PUBLIC), aulaController.updateAula);
 
-// Eliminar
-router.delete("/:id", aulaController.deleteAula);
+// DELETE /aulas/:id
+router.delete("/:id", checkRole(USER_ROLES.PUBLIC), aulaController.deleteAula);
 
 export default router;
