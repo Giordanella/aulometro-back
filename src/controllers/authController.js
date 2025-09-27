@@ -1,3 +1,4 @@
+import { generateToken } from "../middlewares/authMiddleware.js";
 import * as authService from "../services/authService.js";
 
 // POST /login
@@ -10,12 +11,15 @@ export const login = async (req, res) => {
     }
 
     const user = await authService.loginWithEmailPassword(email, password);
+
+    const token = generateToken(user.id);
+
     res.status(200).json({
-      message: "Login successful",
+      token: `Bearer ${token}`,
       user: {
         id: user.id,
         email: user.email,
-        role: user.role, //sacamos el rol del user para saber a que dashboard redirigir
+        role: user.role,
       },
     });
   } catch (err) {
