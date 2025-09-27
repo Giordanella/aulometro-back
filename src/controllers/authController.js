@@ -1,26 +1,27 @@
 import { generateToken } from "../middlewares/authMiddleware.js";
 import * as authService from "../services/authService.js";
+import { toUserDTO } from "../dtos/dtos.js";
 
 // POST /login
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validaciones básicas
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
+    // Buscar usuario y validar credenciales
     const user = await authService.loginWithEmailPassword(email, password);
 
+    // Generar token
     const token = generateToken(user.id);
 
+    // Responder con DTO
     res.status(200).json({
       token: `Bearer ${token}`,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
+      user: toUserDTO(user),
     });
   } catch (err) {
     if (err.message === "User not found") {
