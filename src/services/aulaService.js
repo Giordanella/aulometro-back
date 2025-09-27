@@ -1,160 +1,11 @@
-// src/services/aulaService.js
-// @ts-check
 import { Op } from "sequelize";
 import Aula from "../models/aula.js";
 
-/**
- * @typedef {"disponible" | "ocupada" | "mantenimiento"} AulaEstado
- */
-
-/**
- * @typedef {Object} AulaPayload
- * @property {number|string} numero
- * @property {string} ubicacion
- * @property {number|string} capacidad
- * @property {number|string=} computadoras
- * @property {boolean|string=} tieneProyector
- * @property {AulaEstado=} estado
- */
-
-/**
- * @typedef {Object} ListParams
- * @property {string=} q
- * @property {boolean|string=} conProyector
- * @property {number|string=} minCapacidad
- * @property {number|string=} page
- * @property {number|string=} pageSize
- */
-
-/** Pequeña utilidad de error con status HTTP */
-export class HttpError extends Error {
-  /**
-   * @param {number} status
-   * @param {string} message
-   */
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
+export async function findById(aulaId) {
+  return await Aula.findByPk(aulaId);
 }
 
-/**
- * Normaliza tipos básicos (por si vienen como string desde el front)
- * @param {Partial<AulaPayload>=} payload
- */
-function normalizePayload(payload = {}) {
-  const data = { ...payload };
-
-  if (data.numero !== undefined) data.numero = Number(data.numero);
-  if (data.capacidad !== undefined) data.capacidad = Number(data.capacidad);
-  if (data.computadoras !== undefined)
-    data.computadoras = Number(data.computadoras);
-  if (data.tieneProyector !== undefined)
-    data.tieneProyector =
-      data.tieneProyector === true || data.tieneProyector === "true";
-
-  if (!data.estado) data.estado = "disponible";
-
-  return /** @type {Required<Pick<AulaPayload,"estado">> & Partial<AulaPayload>} */ (
-    data
-  );
-}
-
-//====================================== BUSQUEDA ==================================================================//
-
-// Convierte strings de la query a booleanos reales
-function parseBool(v) {
-  if (v === undefined) return undefined;
-  const s = String(v).toLowerCase();
-  if (["true", "1", "si", "sí", "yes"].includes(s)) return true;
-  if (["false", "0", "no"].includes(s)) return false;
-  return undefined;
-}
-
-/** Filtros admitidos (todos opcionales, vía query string):
- * numero, ubicacion (like), capacidadMin,
- * computadorasMin, tieneProyector, estado*/
-
-const PAGE_SIZE = 50;
-
-export async function buscarAulas(filters = {}) {
-  /** @type {Record<string, any>} */
-  const where = {}; //WHERE dinamico.
-
-  if (filters.numero !== undefined) {
-    const n = Number(filters.numero);
-    if (!Number.isNaN(n)) where.numero = n;
-  }
-
-  if (filters.ubicacion) {
-    const u = String(filters.ubicacion).trim();
-    if (u) where.ubicacion = { [Op.like]: `%${u}%` };
-  }
-
-  if (filters.capacidadMin !== undefined) {
-    const capMin = Number(filters.capacidadMin);
-    if (!Number.isNaN(capMin)) {
-      where.capacidad = { [Op.gte]: capMin };
-    }
-  }
-
-  if (filters.computadorasMin !== undefined) {
-    const compMin = Number(filters.computadorasMin);
-    if (!Number.isNaN(compMin)) {
-      where.computadoras = { [Op.gte]: compMin };
-    }
-  }
-
-  const proy = parseBool(filters.tieneProyector);
-  if (proy !== undefined) where.tieneProyector = proy;
-
-  if (filters.estado) {
-    const e = String(filters.estado).trim();
-    if (e) where.estado = e;
-  }
-
-  const aulas = await Aula.findAll({
-    where,
-    limit: PAGE_SIZE,
-    order: [["numero", "ASC"]],
-  });
-
-  return aulas.map((a) => a.get({ plain: true }));
-}
-
-//========================================C.R.U.D==========================================================//
-
-/**
- * Crea un aula (valida campos mínimos y unicidad de `numero`)
- * @param {AulaPayload} payload
- */
-export async function createAula(payload) {
-  const data = normalizePayload(payload);
-
-  if (data.numero == null || !data.ubicacion || data.capacidad == null) {
-    throw new HttpError(400, "numero, ubicacion y capacidad son obligatorios");
-  }
-
-  const exists = await Aula.findOne({ where: { numero: data.numero } });
-  if (exists)
-    throw new HttpError(409, `Ya existe un aula con el número ${data.numero}`);
-
-  const aula = await Aula.create({
-    numero: /** @type {number} */ (data.numero),
-    ubicacion: data.ubicacion,
-    capacidad: /** @type {number} */ (data.capacidad),
-    computadoras: data.computadoras ?? 0,
-    tieneProyector: data.tieneProyector ?? false,
-    estado: data.estado,
-  });
-
-  return aula;
-}
-
-/**
- * Lista aulas con filtros y paginación
- */
-export async function listAulas({ page = 1, pageSize = 20 } = {}) {
+export async function findAll({ page = 1, pageSize = 20 } = {}) {
   const offset = (page - 1) * pageSize;
   const { rows, count } = await Aula.findAndCountAll({
     attributes: [
@@ -173,73 +24,49 @@ export async function listAulas({ page = 1, pageSize = 20 } = {}) {
   return { rows, count, page, pageSize };
 }
 
-/**
- * Obtiene un aula por ID
- * @param {number|string} id
- */
-export async function getAulaById(id) {
-  const aula = await Aula.findByPk(id);
-  if (!aula) throw new HttpError(404, "Aula no encontrada");
-  return aula;
-}
-
-/**
- * Actualiza un aula (valida unicidad de numero si se cambia)
- * @param {number|string} id
- * @param {Partial<AulaPayload>} payload
- */
-export async function updateAula(id, payload) {
-  const aula = await Aula.findByPk(id);
-  if (!aula) throw new HttpError(404, "Aula no encontrada");
-
-  const data = normalizePayload(payload);
-
-  // ⚠️ Usar get() para leer valores actuales sin que TS se queje
-  /** @type {any} */
-  const current = aula.get();
-
-  // Si cambia el número, validar unicidad
-  if (data.numero !== undefined && data.numero !== current.numero) {
-    const exists = await Aula.findOne({ where: { numero: data.numero } });
-    if (exists)
-      throw new HttpError(
-        409,
-        `Ya existe un aula con el número ${data.numero}`
-      );
+export async function createAula(aulaData) {
+  if (!aulaData.numero || !aulaData.ubicacion || !aulaData.capacidad) {
+    throw new Error("numero, ubicacion y capacidad son obligatorios");
   }
-
-  await aula.update({
-    numero: data.numero ?? current.numero,
-    ubicacion: data.ubicacion ?? current.ubicacion,
-    capacidad: data.capacidad ?? current.capacidad,
-    computadoras: data.computadoras ?? current.computadoras,
-    tieneProyector:
-      data.tieneProyector !== undefined
-        ? data.tieneProyector
-        : current.tieneProyector,
-    estado: data.estado ?? current.estado,
+  return await Aula.create({
+    numero: aulaData.numero,
+    ubicacion: aulaData.ubicacion,
+    capacidad: aulaData.capacidad,
+    computadoras: aulaData.computadoras ?? 0,
+    tieneProyector: aulaData.tieneProyector ?? false,
+    estado: aulaData.estado ?? "disponible",
   });
+}
 
+export async function updateById(aulaId, aulaData) {
+  const aula = await Aula.findByPk(aulaId);
+  if (!aula) throw new Error("Aula no encontrada");
+  await aula.update(aulaData);
   return aula;
 }
 
-/**
- * Elimina un aula
- * @param {number|string} id
- */
-export async function deleteAula(id) {
-  const aula = await Aula.findByPk(id);
-  if (!aula) throw new HttpError(404, "Aula no encontrada");
-  await aula.destroy();
-  return { ok: true };
+export async function removeById(aulaId) {
+  return await Aula.destroy({ where: { id: aulaId } });
 }
 
-export default {
-  createAula,
-  listAulas,
-  getAulaById,
-  updateAula,
-  deleteAula,
-  buscarAulas,
-  HttpError,
-};
+export async function removeAll() {
+  const deleted = await Aula.count();
+  await Aula.destroy({ where: {}, truncate: true });
+  return deleted;
+}
+
+export async function buscarAulas(filters = {}) {
+  const where = {};
+
+  if (filters.numero) where.numero = Number(filters.numero);
+  if (filters.ubicacion) where.ubicacion = { [Op.like]: `%${filters.ubicacion}%` };
+  if (filters.capacidadMin) where.capacidad = { [Op.gte]: Number(filters.capacidadMin) };
+  if (filters.computadorasMin) where.computadoras = { [Op.gte]: Number(filters.computadorasMin) };
+  if (filters.tieneProyector != null)
+    where.tieneProyector = filters.tieneProyector === true || filters.tieneProyector === "true";
+  if (filters.estado) where.estado = filters.estado;
+
+  const aulas = await Aula.findAll({ where, order: [["numero", "ASC"]] });
+  return aulas.map(a => a.get({ plain: true }));
+}
+
