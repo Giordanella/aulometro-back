@@ -24,8 +24,8 @@ export const checkRole = (role) => {
         return res.status(401).json({ error: "Authorization header is required" });
       }
 
-      // Extraer token (Bearer <token>)
-      const token = authHeader.split(" ")[1];
+      // Extraer token
+      const token = authHeader.split(" ")[1] || authHeader; // en caso de que el token ya incluya "Bearer "
       if (!token) {
         return res.status(401).json({ error: "Token is missing" });
       }
@@ -33,19 +33,17 @@ export const checkRole = (role) => {
       // Validar token y buscar usuario
       const decoded = validateToken(token);
       const user = await findById(decoded.userId);
-
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
 
       // Validar rol del usuario
-      if (role !== user.role) {
+      if (role !== USER_ROLES.AUTHENTICATED && role !== user.role) {
         return res.status(403).json({ error: "Forbidden: insufficient permissions" });
       }
 
       req.user = user;
       next();
-
     } catch (error) {
       console.error(error);
       res.status(401).json({ error: "Invalid token" });
