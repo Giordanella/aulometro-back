@@ -5,6 +5,9 @@ import * as userController from "../controllers/userController.js";
 
 const router = express.Router();
 
+// GET /users/current
+router.get("/current", checkRole(USER_ROLES.DIRECTIVO), userController.getCurrentUser);
+
 // GET /users/docentes
 router.get("/docentes", checkRole(USER_ROLES.DIRECTIVO), userController.getDocentes);
 

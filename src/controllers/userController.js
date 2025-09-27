@@ -61,6 +61,11 @@ export const deleteAllUsers = async (req, res) => {
   }
 };
 
+export const getCurrentUser = (req, res) => {
+  const { user } = req;
+  res.json(toUserDTO(user));
+};
+
 export const getDocentes = async (req, res) => {
   try {
     const { page, pageSize } = req.query;
