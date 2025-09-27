@@ -34,6 +34,14 @@ const User = sequelize.define(
   {
     tableName: "users",
     timestamps: false,
+
+    defaultScope: {
+      attributes: { exclude: ["passwordHash"] }, // nunca devolver hash por defecto
+    },
+
+    scopes: {
+      withPassword: { attributes: undefined }, // incluye todo (necesario en login)
+    },
   }
 );
 

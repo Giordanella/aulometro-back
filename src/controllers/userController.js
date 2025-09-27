@@ -1,9 +1,10 @@
 import * as userService from "../services/userService.js";
+import { toUserDTO } from "../dtos/dtos.js";
 
 export const createUser = async (req, res) => {
   try {
     const user = await userService.createUser(req.body);
-    res.status(201).json(user);
+    res.status(201).json(toUserDTO(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -15,7 +16,7 @@ export const getUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.json(user);
+    res.json(toUserDTO(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -24,7 +25,7 @@ export const getUser = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const users = await userService.findAll();
-    res.json(users);
+    res.json(users.map(toUserDTO));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -33,7 +34,7 @@ export const getAllUsers = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const user = await userService.updateById(req.params.id, req.body);
-    res.json(user);
+    res.json(toUserDTO(user));
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
