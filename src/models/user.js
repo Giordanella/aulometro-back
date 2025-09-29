@@ -1,6 +1,9 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
+import bcrypt from "bcrypt";
 import { USER_ROLES } from "../config/roles.js";
+
+const SALT_ROUNDS = 10;
 
 const User = sequelize.define(
   "User",
@@ -25,6 +28,17 @@ const User = sequelize.define(
       allowNull: false,
       field: "password_hash",
     },
+    // Campo virtual: no se guarda en la DB pero se usa al crear/actualizar
+    password: {
+      type: DataTypes.VIRTUAL,
+      set(value) {
+        if (value) {
+          this.setDataValue("password", value);
+          // Lo copiamos a passwordHash para que el hook lo procese
+          this.setDataValue("passwordHash", value);
+        }
+      },
+    },
     role: {
       type: DataTypes.ENUM(USER_ROLES.DOCENTE, USER_ROLES.DIRECTIVO),
       allowNull: false,
@@ -40,9 +54,17 @@ const User = sequelize.define(
     },
 
     scopes: {
-      withPassword: { attributes: undefined }, // incluye todo (necesario en login)
+      withPassword: { attributes: undefined }, // incluye todo (para login)
     },
   }
 );
+
+// Hook para encriptar automáticamente el password antes de guardar
+User.beforeSave(async (user) => {
+  if (user.changed("passwordHash")) {
+    const hash = await bcrypt.hash(user.passwordHash, SALT_ROUNDS);
+    user.passwordHash = hash;
+  }
+});
 
 export default User;

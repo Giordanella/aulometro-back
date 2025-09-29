@@ -1,7 +1,4 @@
 import User from "../models/user.js";
-import bcrypt from "bcrypt";
-
-const SALT_ROUNDS = 10; // parametro para hashear password en createUser
 
 export async function findById(userId) {
   return await User.findByPk(userId);
@@ -12,28 +9,20 @@ export async function findAll() {
 }
 
 export async function createUser(userData) {
-  const { password, ...rest } = userData; // separo la password del resto
-  if (!password) throw new Error("password requiered");
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  const user = await User.create({
-    ...rest,
-    passwordHash, // se guarda el hash, no la contraseña cruda
-  });
-  // para no exponer el hash al devolver el user
+  const user = await User.create(userData);
   const plain = user.get({ plain: true });
   delete plain.passwordHash;
-
   return plain;
 }
 
 export async function updateById(userId, userData) {
-  try {
-    const user = await User.findByPk(userId);
-    await user.update(userData);
-    return user;
-  } catch (error) {
-    throw new Error("User not found");
-  }
+  const user = await User.findByPk(userId);
+  if (!user) throw new Error("User not found");
+
+  await user.update(userData);
+  const plain = user.get({ plain: true });
+  delete plain.passwordHash;
+  return plain;
 }
 
 export async function removeById(userId) {
