@@ -1,0 +1,180 @@
+import { Op } from "sequelize";
+import Reserva from "../models/reserva.js";
+import Aula from "../models/aula.js";
+import { RESERVA_ESTADO, normalizarHora } from "../config/reservas.js";
+import sequelize from "../config/db.js";
+
+export async function verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin }) {
+  const inicio = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+
+  const existentes = await Reserva.findAll({
+    where: {
+      aulaId,
+      diaSemana,
+      estado: RESERVA_ESTADO.APROBADA,
+      [Op.and]: [
+        { horaInicio: { [Op.lt]: fin } },
+        { horaFin: { [Op.gt]: inicio } },
+      ],
+    },
+    order: [["horaInicio", "ASC"]],
+  });
+
+  return existentes.map(r => r.get({ plain: true }));
+}
+
+export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInicio, horaFin, observaciones }, options = {}) {
+  const { transaction } = options;
+  // Validaciones básicas
+  if (!solicitanteId || !aulaId || !diaSemana || !horaInicio || !horaFin) {
+    throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
+  }
+
+  const aula = await Aula.findByPk(aulaId);
+  if (!aula) throw new Error("Aula no encontrada");
+  const aulaPlain = aula.get ? aula.get({ plain: true }) : { id: aulaId };
+
+  const conflictos = await verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin });
+  if (conflictos.length) {
+    const intervalos = conflictos
+      .map(c => `${c.horaInicio} - ${c.horaFin}`)
+      .join(", ");
+    const numero = aulaPlain.numero ?? aulaId;
+    throw new Error(`Conflicto: el aula ${numero} ya está reservada en: ${intervalos}`);
+  }
+
+  const reserva = await Reserva.create({
+    solicitanteId,
+    aulaId,
+    diaSemana,
+    horaInicio: normalizarHora(horaInicio),
+    horaFin: normalizarHora(horaFin),
+    observaciones,
+    estado: RESERVA_ESTADO.PENDIENTE,
+  }, { transaction });
+  return reserva.get({ plain: true });
+}
+
+export async function crearReservaMultiple({ solicitanteId, aulaId, reservas }) {
+  if (!Array.isArray(reservas) || reservas.length === 0) {
+    throw new Error("'reservas' debe ser un arreglo con al menos un elemento");
+  }
+
+  // Validación de solapamientos internos dentro del mismo batch (por diaSemana)
+  const normalizadas = reservas.map((r) => ({
+    diaSemana: r.diaSemana,
+    inicio: normalizarHora(r.horaInicio),
+    fin: normalizarHora(r.horaFin),
+    observaciones: r.observaciones,
+  }));
+  for (let i = 0; i < normalizadas.length; i++) {
+    for (let j = i + 1; j < normalizadas.length; j++) {
+      const a = normalizadas[i];
+      const b = normalizadas[j];
+      if (a.diaSemana === b.diaSemana && a.inicio < b.fin && b.inicio < a.fin) {
+        throw new Error("Conflicto interno en batch: hay franjas que se solapan");
+      }
+    }
+  }
+
+  const t = await sequelize.transaction();
+  try {
+    const resultados = [];
+    for (const r of reservas) {
+      resultados.push(
+        await crearReserva(
+          {
+            solicitanteId,
+            aulaId,
+            diaSemana: r.diaSemana,
+            horaInicio: r.horaInicio,
+            horaFin: r.horaFin,
+            observaciones: r.observaciones,
+          },
+          { transaction: t }
+        )
+      );
+    }
+    await t.commit();
+    return resultados;
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+}
+
+export async function aprobarReserva(reservaId, aprobadorId) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden aprobar reservas en estado PENDIENTE");
+
+  // Revalidar conflictos a la hora de aprobar
+  const conflictos = await verificarConflictos({
+    aulaId: rPlain.aulaId,
+    diaSemana: rPlain.diaSemana,
+    horaInicio: rPlain.horaInicio,
+    horaFin: rPlain.horaFin,
+  });
+  if (conflictos.length) {
+    throw new Error("Conflicto detectado al aprobar: el horario fue ocupado");
+  }
+
+  await reserva.update({ estado: RESERVA_ESTADO.APROBADA, aprobadoPorId: aprobadorId });
+  return reserva.get({ plain: true });
+}
+
+export async function rechazarReserva(reservaId, aprobadorId, motivo) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden rechazar reservas en estado PENDIENTE");
+  const cambios = { estado: RESERVA_ESTADO.RECHAZADA, aprobadoPorId: aprobadorId };
+  if (motivo) {
+    const obs = rPlain.observaciones ? rPlain.observaciones + " | " : "";
+    cambios.observaciones = obs + `Motivo rechazo: ${motivo}`;
+  }
+  await reserva.update(cambios);
+  return reserva.get({ plain: true });
+}
+
+export async function cancelarReserva(reservaId, solicitanteId) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes cancelar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden cancelar reservas PENDIENTE o APROBADA");
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
+}
+
+export async function listarPendientes() {
+  const reservas = await Reserva.findAll({
+    where: { estado: RESERVA_ESTADO.PENDIENTE },
+    order: [["creadoEn", "ASC"]],
+  });
+  return reservas.map(r => r.get({ plain: true }));
+}
+
+export async function listarMias(userId) {
+  const reservas = await Reserva.findAll({
+    where: { solicitanteId: userId },
+    order: [["creadoEn", "DESC"]],
+  });
+  return reservas.map(r => r.get({ plain: true }));
+}
+
+export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin }) {
+  const conflictos = await verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin });
+  return { available: conflictos.length === 0, conflicts: conflictos };
+}
+
+export async function obtenerPorId(id) {
+  const r = await Reserva.findByPk(id);
+  return r ? r.get({ plain: true }) : null;
+}

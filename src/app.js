@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.js";
 import userRouter from "./routes/users.js";
 import busquedaRouter from "./routes/busqueda.js";
 import aulaRouter from "./routes/aulas.js";
+import reservasRouter from "./routes/reservas.js";
 
 import cors from "cors";
 
@@ -28,6 +29,7 @@ app.use("/login", authRouter);
 app.use("/users", userRouter);
 app.use("/busqueda", busquedaRouter);
 app.use("/aulas", aulaRouter);
+app.use("/reservas", reservasRouter);
 
 (async () => {
   try {
