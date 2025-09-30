@@ -1,0 +1,72 @@
+import sequelize from "../../src/config/db.js";
+import Aula from "../../src/models/aula.js";
+import {
+  createAula,
+  findAll,
+  findById,
+  updateById,
+  removeById,
+} from "../../src/services/aulaService.js";
+
+beforeAll(async () => {
+  await sequelize.sync();
+});
+
+afterAll(async () => {
+  await sequelize.close();
+});
+
+let aulaId;
+
+test("createAula crea correctamente un aula", async () => {
+  const aula = await createAula({
+    numero: 200,
+    ubicacion: "Edificio B",
+    capacidad: 30,
+    computadoras: 5,
+    tieneProyector: false,
+  });
+
+  const aulaPlain = aula.get ? aula.get({ plain: true }) : aula;
+  aulaId = aulaPlain.id;
+
+  expect(aulaPlain.id).toBeDefined();
+  expect(aulaPlain.estado).toBe("disponible");
+  expect(aulaPlain.numero).toBe(200);
+});
+
+test("findAll devuelve aulas creadas", async () => {
+  const data = await findAll();
+  expect(data.count).toBeGreaterThanOrEqual(1);
+  expect(Array.isArray(data.rows)).toBe(true);
+  const first = data.rows[0].get ? data.rows[0].get({ plain: true }) : data.rows[0];
+  expect(first).toHaveProperty("numero");
+});
+
+test("findById devuelve el aula por su id", async () => {
+  const aula = await findById(aulaId);
+  const aulaPlain = aula.get ? aula.get({ plain: true }) : aula;
+  expect(aulaPlain.id).toBe(aulaId);
+  expect(aulaPlain.numero).toBe(200);
+});
+
+test("updateById actualiza correctamente los campos", async () => {
+  const aula = await updateById(aulaId, {
+    ubicacion: "Edificio C",
+    capacidad: 35,
+    tieneProyector: true,
+  });
+
+  const aulaPlain = aula.get ? aula.get({ plain: true }) : aula;
+  expect(aulaPlain.ubicacion).toBe("Edificio C");
+  expect(aulaPlain.capacidad).toBe(35);
+  expect(aulaPlain.tieneProyector).toBe(true);
+});
+
+test("removeById elimina el aula", async () => {
+  const deleted = await removeById(aulaId);
+  expect(deleted).toBe(1);
+
+  const existe = await Aula.findByPk(aulaId);
+  expect(existe).toBeNull();
+});
