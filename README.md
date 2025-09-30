@@ -1,4 +1,15 @@
-# Aulómetro Back-end (Node.js + Express + Sequelize)
+# Aulómetro - Backend
+
+![UNQ Logo](https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_unqui.png)
+
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/tu-usuario/aulometro-back/actions)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Express](https://img.shields.io/badge/express-5.1.0-blue)](https://expressjs.com/)
+[![Sequelize](https://img.shields.io/badge/sequelize-6.37.7-blue)](https://sequelize.org/)
+[![Node.js Version](https://img.shields.io/badge/node-v22.16.0-brightgreen)](https://nodejs.org/)
+[![Jest](https://img.shields.io/badge/tested%20with-jest-blue)](https://jestjs.io/)
+
+---
 
 API REST para gestión de aulas, usuarios y reservas con flujo de aprobación. Este README documenta cómo configurar ambientes (dev/test/prod), correr el proyecto, ejecutar pruebas, y el diseño de la funcionalidad de reservas.
 
@@ -14,14 +25,14 @@ API REST para gestión de aulas, usuarios y reservas con flujo de aprobación. E
 ## Estructura relevante
 
 - `src/`
-  - `app.js`: servidor Express y montaje de rutas
-  - `config/db.js`: instancia de Sequelize
-  - `config/roles.js`: roles de usuario
-  - `config/reservas.js`: constantes de reservas y utilidades
-  - `models/`: modelos Sequelize (`user`, `aula`, `reserva`)
-  - `services/`: lógica de negocio (`auth`, `user`, `aula`, `reserva`)
-  - `controllers/`: controladores Express
-  - `routes/`: rutas Express (`/auth`, `/users`, `/aulas`, `/busqueda`, `/reservas`)
+  - `app.js`
+  - `config/db.js`
+  - `config/roles.js`
+  - `config/reservas.js`
+  - `models/`
+  - `services/`
+  - `controllers/`
+  - `routes/`
   - `middlewares/authMiddleware.js`: validación JWT/rol
 - `Tests/`: pruebas Jest (servicios y modelos)
 - `.env`, `.env.test`: variables de entorno
@@ -101,7 +112,7 @@ La conexión a base de datos se toma según `DB_DIALECT`:
 - Dev/Test: `sqlite` (no requiere servidor externo)
 - Prod: `mysql` (recomendado para producción)
 
-Actualmente se usa `sequelize.sync()` para crear tablas automáticamente en dev/test. En producción, se recomienda reemplazar `sync` por migraciones administradas (sequelize-cli o umzug) para cambios controlados de esquema.
+Actualmente se usa `sequelize.sync()` para crear tablas automáticamente.
 
 ## Pruebas (Jest)
 
