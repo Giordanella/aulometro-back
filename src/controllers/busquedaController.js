@@ -117,5 +117,6 @@ export const buscarAulasDisponibles = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al buscar aulas disponibles" });
+    
   }
 };
