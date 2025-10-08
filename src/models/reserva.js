@@ -28,13 +28,21 @@ const Reserva = sequelize.define(
     },
     diaSemana: {
       type: DataTypes.INTEGER, // 1 (lunes) - 7 (domingo)
-      allowNull: false,
+      allowNull: true, // Ahora puede ser null para examen
       field: "dia_semana",
       validate: {
-        isInt: true,
+        isInt: {
+          msg: "diaSemana debe ser un entero",
+        },
         min: 1,
         max: 7,
       },
+    },
+    fechaExamen: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: "fecha_examen",
+      comment: "Solo para reservas de examen",
     },
     horaInicio: {
       type: DataTypes.TIME,
@@ -55,11 +63,19 @@ const Reserva = sequelize.define(
         esMayorQueInicio(value) {
           const inicio = this.horaInicio;
           const fin = value ?? this.horaFin;
-          if (inicio && fin && String(fin) <= String(inicio)) {
+          // Solo validar si ambos existen y no es reserva de examen de un solo día
+          if (!this.esExamen && inicio && fin && String(fin) <= String(inicio)) {
             throw new Error("horaFin debe ser mayor que horaInicio");
           }
         },
       },
+    },
+    esExamen: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "es_examen",
+      comment: "Indica si la reserva es para examen",
     },
     estado: {
       type: DataTypes.ENUM(

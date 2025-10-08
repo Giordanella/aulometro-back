@@ -8,6 +8,9 @@ import {
   listarMias,
   disponibilidad,
   obtenerPorId,
+  editarReserva,
+  reservarAulaExamen,
+  desasignarReserva,
 } from "../services/reservaService.js";
 import { parseCreateReservaDTO, parseCreateReservaBatchDTO, toReservaDTO } from "../dtos/dtos.js";
 
@@ -28,6 +31,9 @@ export async function postReserva(req, res) {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+  res.json({
+  mensaje: "Su solicitud se ha realizado con éxito, se estará evaluando en los próximos días."
+});
 }
 
 export async function getMias(req, res) {
@@ -100,5 +106,38 @@ export async function getById(req, res) {
     res.json(toReservaDTO(r));
   } catch (err) {
     res.status(500).json({ error: "Error al obtener la reserva" });
+  }
+}
+export async function putEditar(req, res) {
+  try {
+    const usuarioId = req.user.id;
+    const { id } = req.params;
+    const datos = req.body;
+    const r = await editarReserva(id, datos, usuarioId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postReservaExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { aulaId, fecha, horaInicio, horaFin, observaciones } = req.body;
+    await reservarAulaExamen({ solicitanteId, aulaId, fecha, horaInicio, horaFin, observaciones });
+    res.status(201).json({ mensaje: "Su solicitud se ha realizado con éxito, se estará evaluando en los próximos días." });
+  } catch (err) {
+    res.status(400).json({ error: "Hubo un error al realizar la solicitud de reserva" });
+  }
+}
+
+export async function postDesasignar(req, res) {
+  try {
+    const directivoId = req.user.id;
+    const { id } = req.params;
+    const r = await desasignarReserva(id, directivoId);
+    res.json({ mensaje: "La reserva fue desasignada y el aula está disponible.", reserva: r });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 }

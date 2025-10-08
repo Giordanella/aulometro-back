@@ -21,7 +21,8 @@ router.get("/", checkRole(USER_ROLES.DIRECTIVO), userController.getAllUsers);
 router.post("/", checkRole(USER_ROLES.DIRECTIVO), userController.createUser);
 
 // PUT /users/:id
-router.put("/:id", checkRole(USER_ROLES.DIRECTIVO), userController.updateUser);
+router.put("/:id", checkRole(USER_ROLES.PUBLIC), userController.updateUser);
+//router.put("/:id", checkRole(USER_ROLES.DIRECTIVO), userController.updateUser);
 
 // DELETE /users/:id
 router.delete("/:id", checkRole(USER_ROLES.DIRECTIVO), userController.deleteUser);
