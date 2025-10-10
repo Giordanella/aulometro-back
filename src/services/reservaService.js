@@ -142,104 +142,6 @@ export async function rechazarReserva(reservaId, aprobadorId, motivo) {
   return reserva.get({ plain: true });
 }
 
-//Editar una reserva
-export async function editarReserva(reservaId, { aulaId, diaSemana, horaInicio, horaFin, observaciones }, usuarioId) {
-  // Buscar reserva actual
-  const reserva = await Reserva.findByPk(reservaId);
-  if (!reserva) throw new Error("Reserva no encontrada");
-  const rPlain = reserva.get({ plain: true });
-
-  // Solo el solicitante puede editar y solo si está pendiente
-  if (rPlain.solicitanteId !== usuarioId)
-    throw new Error("No puedes editar una reserva de otro usuario");
-  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
-    throw new Error("Solo se pueden editar reservas en estado PENDIENTE");
-
-  // Determinar nuevos valores
-  const nuevoAulaId = aulaId ?? rPlain.aulaId;
-  const nuevoDiaSemana = diaSemana ?? rPlain.diaSemana;
-  const nuevoHoraInicio = horaInicio ?? rPlain.horaInicio;
-  const nuevoHoraFin = horaFin ?? rPlain.horaFin;
-  const nuevoObservaciones = observaciones ?? rPlain.observaciones;
-
-  // Verificar conflictos (excluyendo la reserva actual)
-  const conflictos = await Reserva.findAll({
-    where: {
-      aulaId: nuevoAulaId,
-      diaSemana: nuevoDiaSemana,
-      estado: RESERVA_ESTADO.APROBADA,
-      id: { [Op.ne]: reservaId },
-      [Op.and]: [
-        { horaInicio: { [Op.lt]: normalizarHora(nuevoHoraFin) } },
-        { horaFin: { [Op.gt]: normalizarHora(nuevoHoraInicio) } },
-      ],
-    },
-  });
-  if (conflictos.length) {
-    throw new Error("Conflicto: el aula ya está reservada en ese horario");
-  }
-
-  // Guardar historial de cambios
-  await ReservaHistorial.create({
-    reservaId: reserva.id,
-    cambios: JSON.stringify({
-      antes: {
-        aulaId: rPlain.aulaId,
-        diaSemana: rPlain.diaSemana,
-        horaInicio: rPlain.horaInicio,
-        horaFin: rPlain.horaFin,
-        observaciones: rPlain.observaciones,
-      },
-      despues: {
-        aulaId: nuevoAulaId,
-        diaSemana: nuevoDiaSemana,
-        horaInicio: normalizarHora(nuevoHoraInicio),
-        horaFin: normalizarHora(nuevoHoraFin),
-        observaciones: nuevoObservaciones,
-      }
-    }),
-    fechaCambio: new Date(),
-    usuarioId: usuarioId,
-  });
-
-  // Actualizar reserva
-  await reserva.update({
-    aulaId: nuevoAulaId,
-    diaSemana: nuevoDiaSemana,
-    horaInicio: normalizarHora(nuevoHoraInicio),
-    horaFin: normalizarHora(nuevoHoraFin),
-    observaciones: nuevoObservaciones,
-  });
-
-  return reserva.get({ plain: true });
-}
-
-export async function cancelarReserva(reservaId, solicitanteId) {
-  const reserva = await Reserva.findByPk(reservaId);
-  if (!reserva) throw new Error("Reserva no encontrada");
-  const rPlain = reserva.get({ plain: true });
-  if (rPlain.solicitanteId !== solicitanteId)
-    throw new Error("No puedes cancelar una reserva de otro usuario");
-  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
-    throw new Error("Solo se pueden cancelar reservas PENDIENTE o APROBADA");
-  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
-  return reserva.get({ plain: true });
-}
-
-/**
- * Permite a un directivo desasignar (cancelar) una reserva aprobada.
- * Cambia el estado a CANCELADA y la deja disponible.
- */
-export async function desasignarReserva(reservaId, directivoId) {
-  const reserva = await Reserva.findByPk(reservaId);
-  if (!reserva) throw new Error("Reserva no encontrada");
-  const rPlain = reserva.get({ plain: true });
-  if (rPlain.estado !== RESERVA_ESTADO.APROBADA)
-    throw new Error("Solo se pueden desasignar reservas en estado APROBADA");
-  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA, aprobadoPorId: directivoId });
-  return reserva.get({ plain: true });
-}
-
 export async function listarPendientes() {
   const reservas = await Reserva.findAll({
     where: { estado: RESERVA_ESTADO.PENDIENTE },
@@ -313,5 +215,119 @@ export async function reservarAulaExamen({ solicitanteId, aulaId, fecha, horaIni
     esExamen: true,
   });
 
+  return reserva.get({ plain: true });
+}
+
+export async function listarTodas() {
+  const reservas = await Reserva.findAll({
+    order: [["creadoEn", "DESC"]],
+  });
+  return reservas.map(r => r.get({ plain: true }));
+}
+
+//Editar una reserva
+export async function editarReserva(reservaId, { aulaId, diaSemana, horaInicio, horaFin, observaciones }, usuarioId) {
+  // Buscar reserva actual usando listarTodas para comprobar existencia
+  const todas = await listarTodas();
+  const existe = todas.find(r => String(r.id) === String(reservaId));
+  if (!existe) throw new Error("Reserva no encontrada");
+
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+
+  // Solo el solicitante puede editar y solo si está pendiente
+  if (rPlain.solicitanteId !== usuarioId)
+    throw new Error("No puedes editar una reserva de otro usuario");
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden editar reservas en estado PENDIENTE");
+
+  // Determinar nuevos valores
+  const nuevoAulaId = aulaId ?? rPlain.aulaId;
+  const nuevoDiaSemana = diaSemana ?? rPlain.diaSemana;
+  const nuevoHoraInicio = horaInicio ?? rPlain.horaInicio;
+  const nuevoHoraFin = horaFin ?? rPlain.horaFin;
+  const nuevoObservaciones = observaciones ?? rPlain.observaciones;
+
+  // Verificar conflictos (excluyendo la reserva actual)
+  const conflictos = await Reserva.findAll({
+    where: {
+      aulaId: nuevoAulaId,
+      diaSemana: nuevoDiaSemana,
+      estado: RESERVA_ESTADO.APROBADA,
+      id: { [Op.ne]: reservaId },
+      [Op.and]: [
+        { horaInicio: { [Op.lt]: normalizarHora(nuevoHoraFin) } },
+        { horaFin: { [Op.gt]: normalizarHora(nuevoHoraInicio) } },
+      ],
+    },
+  });
+  if (conflictos.length) {
+    throw new Error("Conflicto: el aula ya está reservada en ese horario");
+  }
+
+  // Guardar historial de cambios
+  await ReservaHistorial.create({
+    reservaId: reserva.id,
+    cambios: JSON.stringify({
+      antes: {
+        aulaId: rPlain.aulaId,
+        diaSemana: rPlain.diaSemana,
+        horaInicio: rPlain.horaInicio,
+        horaFin: rPlain.horaFin,
+        observaciones: rPlain.observaciones,
+      },
+      despues: {
+        aulaId: nuevoAulaId,
+        diaSemana: nuevoDiaSemana,
+        horaInicio: normalizarHora(nuevoHoraInicio),
+        horaFin: normalizarHora(nuevoHoraFin),
+        observaciones: nuevoObservaciones,
+      }
+    }),
+    fechaCambio: new Date(),
+    usuarioId: usuarioId,
+  });
+
+  // Actualizar reserva
+  await reserva.update({
+    aulaId: nuevoAulaId,
+    diaSemana: nuevoDiaSemana,
+    horaInicio: normalizarHora(nuevoHoraInicio),
+    horaFin: normalizarHora(nuevoHoraFin),
+    observaciones: nuevoObservaciones,
+  });
+
+  return reserva.get({ plain: true });
+}
+
+export async function cancelarReserva(reservaId, solicitanteId) {
+  // Buscar reserva actual usando listarTodas para comprobar existencia
+  const todas = await listarTodas();
+  const existe = todas.find(r => String(r.id) === String(reservaId));
+  if (!existe) throw new Error("Reserva no encontrada");
+
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes cancelar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden cancelar reservas PENDIENTE o APROBADA");
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
+}
+
+/**
+ * Permite a un directivo desasignar (cancelar) una reserva aprobada.
+ * Cambia el estado a CANCELADA y la deja disponible.
+ */
+export async function desasignarReserva(reservaId, directivoId) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.APROBADA)
+    throw new Error("Solo se pueden desasignar reservas en estado APROBADA");
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA, aprobadoPorId: directivoId });
   return reserva.get({ plain: true });
 }

@@ -38,6 +38,8 @@ router.get("/:id", checkRole(USER_ROLES.AUTHENTICATED), controller.getById);
 // Editar reserva (solo dueño y si está pendiente)
 router.put("/:id", checkRole(USER_ROLES.DOCENTE), controller.putEditar);
 
+// Todas las reservas (directivo)
+router.get("/todas", checkRole(USER_ROLES.DIRECTIVO), controller.getTodas);
 
 
 export default router;

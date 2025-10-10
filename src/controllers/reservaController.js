@@ -11,6 +11,7 @@ import {
   editarReserva,
   reservarAulaExamen,
   desasignarReserva,
+  listarTodas,
 } from "../services/reservaService.js";
 import { parseCreateReservaDTO, parseCreateReservaBatchDTO, toReservaDTO } from "../dtos/dtos.js";
 
@@ -139,5 +140,14 @@ export async function postDesasignar(req, res) {
     res.json({ mensaje: "La reserva fue desasignada y el aula está disponible.", reserva: r });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+}
+
+export async function getTodas(req, res) {
+  try {
+    const reservas = await listarTodas();
+    res.json(reservas.map(toReservaDTO));
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener todas las reservas" });
   }
 }
