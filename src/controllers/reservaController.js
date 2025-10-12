@@ -16,6 +16,7 @@ import { parseCreateReservaDTO,
     parseCreateReservaExamenDTO } from "../dtos/dtos.js";
 
 
+
 export async function postReserva(req, res) {
   try {
     const solicitanteId = req.user.id;
