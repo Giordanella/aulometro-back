@@ -8,8 +8,13 @@ import {
   listarMias,
   disponibilidad,
   obtenerPorId,
+  crearReservaParaExamen,
 } from "../services/reservaService.js";
-import { parseCreateReservaDTO, parseCreateReservaBatchDTO, toReservaDTO } from "../dtos/dtos.js";
+import { parseCreateReservaDTO,
+   parseCreateReservaBatchDTO,
+    toReservaDTO,
+    parseCreateReservaExamenDTO } from "../dtos/dtos.js";
+
 
 export async function postReserva(req, res) {
   try {
@@ -100,5 +105,15 @@ export async function getById(req, res) {
     res.json(toReservaDTO(r));
   } catch (err) {
     res.status(500).json({ error: "Error al obtener la reserva" });
+  }
+}
+export async function postReservaExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const parsed = parseCreateReservaExamenDTO(req.body);
+    const creada = await crearReservaParaExamen({ solicitanteId, ...parsed });
+    res.status(201).json(toReservaDTO(creada));
+  } catch (err) {
+    res.status(err.status ?? 400).json({ error: err.message });
   }
 }

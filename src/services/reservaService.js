@@ -3,7 +3,7 @@ import Reserva from "../models/reserva.js";
 import Aula from "../models/aula.js";
 import { RESERVA_ESTADO, normalizarHora } from "../config/reservas.js";
 import sequelize from "../config/db.js";
-
+import ReservaExamen from "../models/reservaExamen.js";
 export async function verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin }) {
   const inicio = normalizarHora(horaInicio);
   const fin = normalizarHora(horaFin);
@@ -126,6 +126,7 @@ export async function aprobarReserva(reservaId, aprobadorId) {
   return reserva.get({ plain: true });
 }
 
+
 export async function rechazarReserva(reservaId, aprobadorId, motivo) {
   const reserva = await Reserva.findByPk(reservaId);
   if (!reserva) throw new Error("Reserva no encontrada");
@@ -177,4 +178,46 @@ export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin })
 export async function obtenerPorId(id) {
   const r = await Reserva.findByPk(id);
   return r ? r.get({ plain: true }) : null;
+}
+
+
+
+
+export async function crearReservaParaExamen(
+  { solicitanteId, aulaId, diaSemana, horaInicio, horaFin, materia, mesa, observaciones },
+  options = {}
+) {
+  const { transaction } = options;
+
+  // Validaciones mínimas
+  if (!solicitanteId || !aulaId || diaSemana === undefined || !horaInicio || !horaFin) {
+    throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
+  }
+
+  const ini = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+  if (ini === fin) throw new Error("La franja no puede tener duración 0");
+  if (ini > fin) throw new Error("horaInicio debe ser menor a horaFin");
+
+  // Opcional: verificar que el aula exista (si tenés FK, la DB lo hará fallar)
+  const aula = await Aula.findByPk(aulaId, { transaction });
+  if (!aula) throw new Error("Aula no encontrada");
+
+  // Crear reserva de EXAMEN (sin verificar conflictos)
+  const reservaExamen = await ReservaExamen.create(
+    {
+      solicitanteId,
+      aulaId,
+      diaSemana,
+      horaInicio: ini,
+      horaFin: fin,
+      materia: materia ?? null,
+      mesa: mesa ?? null,
+      observaciones: observaciones ?? null,
+      estado: RESERVA_ESTADO.PENDIENTE, // explícito por si en el modelo cambia el default
+    },
+    { transaction }
+  );
+
+  return reservaExamen.get({ plain: true });
 }

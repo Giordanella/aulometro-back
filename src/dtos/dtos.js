@@ -79,3 +79,28 @@ export function toReservaDTO(r) {
     creadoEn: r.creadoEn,
   };
 }
+
+export function parseCreateReservaExamenDTO(body) {
+  const base = parseCreateReservaDTO(body); 
+  let materia = body?.materia;
+  let mesa = body?.mesa;
+
+  if (materia != null) materia = String(materia).trim();
+  if (mesa != null) mesa = String(mesa).trim();
+
+  
+    const errors = [];
+  if (!materia) errors.push("materia es obligatoria");
+  if (!mesa) errors.push("mesa es obligatoria");
+  if (errors.length) throw httpError(400, errors.join(", "));
+
+  return { 
+    aulaId: base.aulaId,
+    diaSemana: base.diaSemana,
+    horaInicio: base.horaInicio,
+    horaFin: base.horaFin,
+    observaciones: base.observaciones, 
+    materia,
+    mesa,
+  };
+}
