@@ -3,6 +3,7 @@ import { USER_ROLES } from "../config/roles.js";
 import { checkRole } from "../middlewares/authMiddleware.js";
 import * as controller from "../controllers/reservaController.js";
 
+
 const router = express.Router();
 
 // Crear una reserva o múltiples franjas para una misma aula
@@ -26,5 +27,13 @@ router.get("/disponibilidad", checkRole(USER_ROLES.AUTHENTICATED), controller.ge
 
 // Obtener por id
 router.get("/:id", checkRole(USER_ROLES.AUTHENTICATED), controller.getById);
+
+console.log("typeof checkRole:", typeof checkRole);
+console.log("typeof checkRole(USER_ROLES.DOCENTE):", typeof checkRole?.(USER_ROLES?.DOCENTE));
+console.log("typeof controller.postReservaExamen:", typeof controller?.postReservaExamen);
+
+router.post("/examen", checkRole(USER_ROLES.DOCENTE), controller.postReservaExamen);
+
+
 
 export default router;
