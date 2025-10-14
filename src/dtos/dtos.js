@@ -80,32 +80,34 @@ export function toReservaDTO(r) {
     creadoEn: r.creadoEn,
     // extras para reservas de examen (opcionales)
     tipo: esExamen ? "EXAMEN" : "REGULAR",
+    fecha: r.fecha ?? null,
     materia: r.materia ?? null,
     mesa: r.mesa ?? null,
   };
 }
 
 export function parseCreateReservaExamenDTO(body) {
-  const base = parseCreateReservaDTO(body); 
+  const errors = [];
+  const aulaId = Number(body?.aulaId);
+  const fecha = String(body?.fecha ?? ""); // YYYY-MM-DD
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
   let materia = body?.materia;
   let mesa = body?.mesa;
 
+  if (!Number.isFinite(aulaId) || aulaId <= 0) errors.push("aulaId inválido");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errors.push("fecha inválida (YYYY-MM-DD)");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inválida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inválida (HH:mm o HH:mm:ss)");
+
   if (materia != null) materia = String(materia).trim();
   if (mesa != null) mesa = String(mesa).trim();
-
-  
-    const errors = [];
   if (!materia) errors.push("materia es obligatoria");
   if (!mesa) errors.push("mesa es obligatoria");
+
   if (errors.length) throw httpError(400, errors.join(", "));
 
-  return { 
-    aulaId: base.aulaId,
-    diaSemana: base.diaSemana,
-    horaInicio: base.horaInicio,
-    horaFin: base.horaFin,
-    observaciones: base.observaciones, 
-    materia,
-    mesa,
-  };
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  return { aulaId, fecha, horaInicio, horaFin, materia, mesa, observaciones };
 }

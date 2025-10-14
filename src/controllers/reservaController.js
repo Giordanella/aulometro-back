@@ -9,6 +9,9 @@ import {
   disponibilidad,
   obtenerPorId,
   crearReservaParaExamen,
+  aprobarReservaExamen,
+  rechazarReservaExamen,
+  cancelarReservaExamen,
 } from "../services/reservaService.js";
 import { parseCreateReservaDTO,
    parseCreateReservaBatchDTO,
@@ -116,5 +119,39 @@ export async function postReservaExamen(req, res) {
     res.status(201).json(toReservaDTO(creada));
   } catch (err) {
     res.status(err.status ?? 400).json({ error: err.message });
+  }
+}
+
+export async function postAprobarExamen(req, res) {
+  try {
+    const aprobadorId = req.user.id;
+    const { id } = req.params;
+    const r = await aprobarReservaExamen(id, aprobadorId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postRechazarExamen(req, res) {
+  try {
+    const aprobadorId = req.user.id;
+    const { id } = req.params;
+    const { motivo } = req.body || {};
+    const r = await rechazarReservaExamen(id, aprobadorId, motivo);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postCancelarExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const r = await cancelarReservaExamen(id, solicitanteId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 }

@@ -212,14 +212,14 @@ export async function obtenerPorId(id) {
 
 
 export async function crearReservaParaExamen(
-  { solicitanteId, aulaId, diaSemana, horaInicio, horaFin, materia, mesa, observaciones },
+  { solicitanteId, aulaId, fecha, horaInicio, horaFin, materia, mesa, observaciones },
   options = {}
 ) {
   const { transaction } = options;
 
   // Validaciones mínimas
-  if (!solicitanteId || !aulaId || diaSemana === undefined || !horaInicio || !horaFin) {
-    throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
+  if (!solicitanteId || !aulaId || !fecha || !horaInicio || !horaFin) {
+    throw new Error("solicitanteId, aulaId, fecha, horaInicio y horaFin son obligatorios");
   }
 
   const ini = normalizarHora(horaInicio);
@@ -231,11 +231,17 @@ export async function crearReservaParaExamen(
   const aula = await Aula.findByPk(aulaId, { transaction });
   if (!aula) throw new Error("Aula no encontrada");
 
+  // Derivar diaSemana desde la fecha (1..7 Lunes..Domingo)
+  const d = new Date(`${fecha}T00:00:00`);
+  const dow = d.getDay(); // 0=Dom..6=Sab
+  const diaSemana = dow === 0 ? 7 : dow; // 1..7
+
   // Crear reserva de EXAMEN (sin verificar conflictos)
   const reservaExamen = await ReservaExamen.create(
     {
       solicitanteId,
       aulaId,
+      fecha,
       diaSemana,
       horaInicio: ini,
       horaFin: fin,
@@ -248,4 +254,77 @@ export async function crearReservaParaExamen(
   );
 
   return reservaExamen.get({ plain: true });
+}
+
+// ============
+// Examen flows
+// ============
+
+export async function verificarConflictosExamen({ aulaId, fecha, horaInicio, horaFin }) {
+  const inicio = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+
+  const existentes = await ReservaExamen.findAll({
+    where: {
+      aulaId,
+      fecha,
+      estado: RESERVA_ESTADO.APROBADA,
+      [Op.and]: [
+        { horaInicio: { [Op.lt]: fin } },
+        { horaFin: { [Op.gt]: inicio } },
+      ],
+    },
+    order: [["horaInicio", "ASC"]],
+  });
+
+  return existentes.map(r => r.get({ plain: true }));
+}
+
+export async function aprobarReservaExamen(reservaId, aprobadorId) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden aprobar reservas en estado PENDIENTE");
+
+  // Revalidar conflictos a la hora de aprobar contra otras de examen
+  const conflictos = await verificarConflictosExamen({
+    aulaId: rPlain.aulaId,
+    fecha: rPlain.fecha,
+    horaInicio: rPlain.horaInicio,
+    horaFin: rPlain.horaFin,
+  });
+  if (conflictos.length) {
+    throw new Error("Conflicto detectado al aprobar: el horario fue ocupado");
+  }
+
+  await reserva.update({ estado: RESERVA_ESTADO.APROBADA, aprobadoPorId: aprobadorId });
+  return reserva.get({ plain: true });
+}
+
+export async function rechazarReservaExamen(reservaId, aprobadorId, motivo) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden rechazar reservas en estado PENDIENTE");
+  const cambios = { estado: RESERVA_ESTADO.RECHAZADA, aprobadoPorId: aprobadorId };
+  if (motivo) {
+    const obs = rPlain.observaciones ? rPlain.observaciones + " | " : "";
+    cambios.observaciones = obs + `Motivo rechazo: ${motivo}`;
+  }
+  await reserva.update(cambios);
+  return reserva.get({ plain: true });
+}
+
+export async function cancelarReservaExamen(reservaId, solicitanteId) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes cancelar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden cancelar reservas PENDIENTE o APROBADA");
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
 }

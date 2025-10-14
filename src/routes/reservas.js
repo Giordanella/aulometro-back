@@ -34,6 +34,13 @@ console.log("typeof controller.postReservaExamen:", typeof controller?.postReser
 
 router.post("/examen", checkRole(USER_ROLES.DOCENTE), controller.postReservaExamen);
 
+// Examen: Aprobar / Rechazar (directivo)
+router.post("/examen/:id/aprobar", checkRole(USER_ROLES.DIRECTIVO), controller.postAprobarExamen);
+router.post("/examen/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRechazarExamen);
+
+// Examen: Cancelar (dueño)
+router.post("/examen/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelarExamen);
+
 
 
 export default router;

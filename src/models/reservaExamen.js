@@ -31,6 +31,12 @@ const ReservaExamen = sequelize.define(
       references: { model: "users", key: "id" },
     },
 
+    fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: true, // permitir nulo para migración; validamos en DTO/servicio
+      field: "fecha",
+    },
+
 
     diaSemana: {
       type: DataTypes.INTEGER,
@@ -95,7 +101,7 @@ const ReservaExamen = sequelize.define(
     tableName: "reservas_examen",
     timestamps: false,
     indexes: [
-      { unique: false, fields: ["aula_id", "dia_semana", "hora_inicio", "hora_fin", "estado"] },
+      { unique: false, fields: ["aula_id", "fecha", "hora_inicio", "hora_fin", "estado"] },
       { unique: false, fields: ["materia"] },
     ],
   }
