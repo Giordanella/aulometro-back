@@ -66,6 +66,7 @@ export function parseCreateReservaBatchDTO(body) {
 }
 
 export function toReservaDTO(r) {
+  const esExamen = Object.prototype.hasOwnProperty.call(r, "materia") || Object.prototype.hasOwnProperty.call(r, "mesa");
   return {
     id: r.id,
     aulaId: r.aulaId,
@@ -77,6 +78,10 @@ export function toReservaDTO(r) {
     estado: r.estado,
     observaciones: r.observaciones ?? null,
     creadoEn: r.creadoEn,
+    // extras para reservas de examen (opcionales)
+    tipo: esExamen ? "EXAMEN" : "REGULAR",
+    materia: r.materia ?? null,
+    mesa: r.mesa ?? null,
   };
 }
 

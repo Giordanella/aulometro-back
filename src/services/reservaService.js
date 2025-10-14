@@ -155,19 +155,45 @@ export async function cancelarReserva(reservaId, solicitanteId) {
 }
 
 export async function listarPendientes() {
-  const reservas = await Reserva.findAll({
-    where: { estado: RESERVA_ESTADO.PENDIENTE },
-    order: [["creadoEn", "ASC"]],
-  });
-  return reservas.map(r => r.get({ plain: true }));
+  // Traer pendientes de reservas regulares y de examen
+  const [regulares, examenes] = await Promise.all([
+    Reserva.findAll({
+      where: { estado: RESERVA_ESTADO.PENDIENTE },
+      order: [["creadoEn", "ASC"]],
+    }),
+    ReservaExamen.findAll({
+      where: { estado: RESERVA_ESTADO.PENDIENTE },
+      order: [["creadoEn", "ASC"]],
+    }),
+  ]);
+
+  // Unificar en un solo arreglo y ordenar por fecha de creación ascendente
+  const all = [...regulares, ...examenes]
+    .map((r) => r.get({ plain: true }))
+    .sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+
+  return all;
 }
 
 export async function listarMias(userId) {
-  const reservas = await Reserva.findAll({
-    where: { solicitanteId: userId },
-    order: [["creadoEn", "DESC"]],
-  });
-  return reservas.map(r => r.get({ plain: true }));
+  // Traer reservas propias del usuario tanto regulares como de examen
+  const [regulares, examenes] = await Promise.all([
+    Reserva.findAll({
+      where: { solicitanteId: userId },
+      order: [["creadoEn", "DESC"]],
+    }),
+    ReservaExamen.findAll({
+      where: { solicitanteId: userId },
+      order: [["creadoEn", "DESC"]],
+    }),
+  ]);
+
+  // Unificar en un solo arreglo y ordenar por fecha de creación descendente
+  const all = [...regulares, ...examenes]
+    .map((r) => r.get({ plain: true }))
+    .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+
+  return all;
 }
 
 export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin }) {
@@ -177,7 +203,9 @@ export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin })
 
 export async function obtenerPorId(id) {
   const r = await Reserva.findByPk(id);
-  return r ? r.get({ plain: true }) : null;
+  if (r) return r.get({ plain: true });
+  const e = await ReservaExamen.findByPk(id);
+  return e ? e.get({ plain: true }) : null;
 }
 
 
