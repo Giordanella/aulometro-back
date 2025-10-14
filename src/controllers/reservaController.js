@@ -8,8 +8,21 @@ import {
   listarMias,
   disponibilidad,
   obtenerPorId,
+  crearReservaParaExamen,
+  aprobarReservaExamen,
+  rechazarReservaExamen,
+  cancelarReservaExamen,
+  actualizarReserva,
+  actualizarReservaExamen,
 } from "../services/reservaService.js";
-import { parseCreateReservaDTO, parseCreateReservaBatchDTO, toReservaDTO } from "../dtos/dtos.js";
+import { parseCreateReservaDTO,
+   parseCreateReservaBatchDTO,
+    toReservaDTO,
+    parseCreateReservaExamenDTO,
+    parseUpdateReservaDTO,
+    parseUpdateReservaExamenDTO } from "../dtos/dtos.js";
+
+
 
 export async function postReserva(req, res) {
   try {
@@ -83,6 +96,18 @@ export async function postCancelar(req, res) {
   }
 }
 
+export async function putActualizar(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const parsed = parseUpdateReservaDTO(req.body);
+    const r = await actualizarReserva(id, solicitanteId, parsed);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
 export async function getDisponibilidad(req, res) {
   try {
     const { aulaId, diaSemana, horaInicio, horaFin } = req.query;
@@ -100,5 +125,61 @@ export async function getById(req, res) {
     res.json(toReservaDTO(r));
   } catch (err) {
     res.status(500).json({ error: "Error al obtener la reserva" });
+  }
+}
+export async function postReservaExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const parsed = parseCreateReservaExamenDTO(req.body);
+    const creada = await crearReservaParaExamen({ solicitanteId, ...parsed });
+    res.status(201).json(toReservaDTO(creada));
+  } catch (err) {
+    res.status(err.status ?? 400).json({ error: err.message });
+  }
+}
+
+export async function postAprobarExamen(req, res) {
+  try {
+    const aprobadorId = req.user.id;
+    const { id } = req.params;
+    const r = await aprobarReservaExamen(id, aprobadorId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postRechazarExamen(req, res) {
+  try {
+    const aprobadorId = req.user.id;
+    const { id } = req.params;
+    const { motivo } = req.body || {};
+    const r = await rechazarReservaExamen(id, aprobadorId, motivo);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postCancelarExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const r = await cancelarReservaExamen(id, solicitanteId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function putActualizarExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const parsed = parseUpdateReservaExamenDTO(req.body);
+    const r = await actualizarReservaExamen(id, solicitanteId, parsed);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 }

@@ -66,6 +66,7 @@ export function parseCreateReservaBatchDTO(body) {
 }
 
 export function toReservaDTO(r) {
+  const esExamen = Object.prototype.hasOwnProperty.call(r, "materia") || Object.prototype.hasOwnProperty.call(r, "mesa");
   return {
     id: r.id,
     aulaId: r.aulaId,
@@ -77,5 +78,71 @@ export function toReservaDTO(r) {
     estado: r.estado,
     observaciones: r.observaciones ?? null,
     creadoEn: r.creadoEn,
+    // extras para reservas de examen (opcionales)
+    tipo: esExamen ? "EXAMEN" : "REGULAR",
+    fecha: r.fecha ?? null,
+    materia: r.materia ?? null,
+    mesa: r.mesa ?? null,
   };
+}
+
+export function parseCreateReservaExamenDTO(body) {
+  const errors = [];
+  const aulaId = Number(body?.aulaId);
+  const fecha = String(body?.fecha ?? ""); // YYYY-MM-DD
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
+  let materia = body?.materia;
+  let mesa = body?.mesa;
+
+  if (!Number.isFinite(aulaId) || aulaId <= 0) errors.push("aulaId inválido");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errors.push("fecha inválida (YYYY-MM-DD)");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inválida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inválida (HH:mm o HH:mm:ss)");
+
+  if (materia != null) materia = String(materia).trim();
+  if (mesa != null) mesa = String(mesa).trim();
+  if (!materia) errors.push("materia es obligatoria");
+  if (!mesa) errors.push("mesa es obligatoria");
+
+  if (errors.length) throw httpError(400, errors.join(", "));
+
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  return { aulaId, fecha, horaInicio, horaFin, materia, mesa, observaciones };
+}
+
+export function parseUpdateReservaDTO(body) {
+  const errors = [];
+  const diaSemana = Number(body?.diaSemana);
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  if (!Number.isFinite(diaSemana) || diaSemana < 1 || diaSemana > 7) errors.push("diaSemana debe estar entre 1 y 7");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inv\u00e1lida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inv\u00e1lida (HH:mm o HH:mm:ss)");
+
+  if (errors.length) throw httpError(400, errors.join(", "));
+  return { diaSemana, horaInicio, horaFin, observaciones };
+}
+
+export function parseUpdateReservaExamenDTO(body) {
+  const errors = [];
+  const fecha = String(body?.fecha ?? "");
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
+  let materia = body?.materia;
+  let mesa = body?.mesa;
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errors.push("fecha inv\u00e1lida (YYYY-MM-DD)");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inv\u00e1lida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inv\u00e1lida (HH:mm o HH:mm:ss)");
+
+  if (materia != null) materia = String(materia).trim();
+  if (mesa != null) mesa = String(mesa).trim();
+
+  if (errors.length) throw httpError(400, errors.join(", "));
+  return { fecha, horaInicio, horaFin, materia, mesa, observaciones };
 }
