@@ -43,6 +43,6 @@ app.use("/reservas", reservasRouter);
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error("❌ Error al conectar la base de datos:", err);
+    console.error("❌ Error al conectar la base de datos: ", err);
   }
 })();
