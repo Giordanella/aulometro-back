@@ -12,11 +12,15 @@ import {
   aprobarReservaExamen,
   rechazarReservaExamen,
   cancelarReservaExamen,
+  actualizarReserva,
+  actualizarReservaExamen,
 } from "../services/reservaService.js";
 import { parseCreateReservaDTO,
    parseCreateReservaBatchDTO,
     toReservaDTO,
-    parseCreateReservaExamenDTO } from "../dtos/dtos.js";
+    parseCreateReservaExamenDTO,
+    parseUpdateReservaDTO,
+    parseUpdateReservaExamenDTO } from "../dtos/dtos.js";
 
 
 
@@ -92,6 +96,18 @@ export async function postCancelar(req, res) {
   }
 }
 
+export async function putActualizar(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const parsed = parseUpdateReservaDTO(req.body);
+    const r = await actualizarReserva(id, solicitanteId, parsed);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
 export async function getDisponibilidad(req, res) {
   try {
     const { aulaId, diaSemana, horaInicio, horaFin } = req.query;
@@ -150,6 +166,18 @@ export async function postCancelarExamen(req, res) {
     const solicitanteId = req.user.id;
     const { id } = req.params;
     const r = await cancelarReservaExamen(id, solicitanteId);
+    res.json(toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function putActualizarExamen(req, res) {
+  try {
+    const solicitanteId = req.user.id;
+    const { id } = req.params;
+    const parsed = parseUpdateReservaExamenDTO(req.body);
+    const r = await actualizarReservaExamen(id, solicitanteId, parsed);
     res.json(toReservaDTO(r));
   } catch (err) {
     res.status(400).json({ error: err.message });

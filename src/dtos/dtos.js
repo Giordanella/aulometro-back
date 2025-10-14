@@ -111,3 +111,38 @@ export function parseCreateReservaExamenDTO(body) {
 
   return { aulaId, fecha, horaInicio, horaFin, materia, mesa, observaciones };
 }
+
+export function parseUpdateReservaDTO(body) {
+  const errors = [];
+  const diaSemana = Number(body?.diaSemana);
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  if (!Number.isFinite(diaSemana) || diaSemana < 1 || diaSemana > 7) errors.push("diaSemana debe estar entre 1 y 7");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inv\u00e1lida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inv\u00e1lida (HH:mm o HH:mm:ss)");
+
+  if (errors.length) throw httpError(400, errors.join(", "));
+  return { diaSemana, horaInicio, horaFin, observaciones };
+}
+
+export function parseUpdateReservaExamenDTO(body) {
+  const errors = [];
+  const fecha = String(body?.fecha ?? "");
+  const horaInicio = String(body?.horaInicio ?? "");
+  const horaFin = String(body?.horaFin ?? "");
+  let materia = body?.materia;
+  let mesa = body?.mesa;
+  const observaciones = body?.observaciones != null ? String(body.observaciones) : undefined;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errors.push("fecha inv\u00e1lida (YYYY-MM-DD)");
+  if (!TIME_REGEX.test(horaInicio)) errors.push("horaInicio inv\u00e1lida (HH:mm o HH:mm:ss)");
+  if (!TIME_REGEX.test(horaFin)) errors.push("horaFin inv\u00e1lida (HH:mm o HH:mm:ss)");
+
+  if (materia != null) materia = String(materia).trim();
+  if (mesa != null) mesa = String(mesa).trim();
+
+  if (errors.length) throw httpError(400, errors.join(", "));
+  return { fecha, horaInicio, horaFin, materia, mesa, observaciones };
+}

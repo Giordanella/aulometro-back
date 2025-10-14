@@ -21,6 +21,8 @@ router.post("/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRec
 
 // Cancelar (dueño)
 router.post("/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelar);
+// Actualizar (dueño)
+router.put("/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizar);
 
 // Disponibilidad (cualquier autenticado)
 router.get("/disponibilidad", checkRole(USER_ROLES.AUTHENTICATED), controller.getDisponibilidad);
@@ -40,6 +42,8 @@ router.post("/examen/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.
 
 // Examen: Cancelar (dueño)
 router.post("/examen/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelarExamen);
+// Examen: Actualizar (dueño)
+router.put("/examen/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizarExamen);
 
 
 
