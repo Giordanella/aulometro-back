@@ -38,7 +38,7 @@ app.use("/reservas", reservasRouter);
     console.log("✅ Conectado a MySQL con Sequelize");
 
     // Nota: alter para desarrollo, aplicar migraciones en prod
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
 
     // Backfill: para filas antiguas sin fecha, calcular fecha a partir de creadoEn y diaSemana
     try {
