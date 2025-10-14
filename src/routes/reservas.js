@@ -21,6 +21,8 @@ router.post("/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRec
 
 // Cancelar (dueño)
 router.post("/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelar);
+// Actualizar (dueño)
+router.put("/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizar);
 
 // Disponibilidad (cualquier autenticado)
 router.get("/disponibilidad", checkRole(USER_ROLES.AUTHENTICATED), controller.getDisponibilidad);
@@ -33,6 +35,15 @@ console.log("typeof checkRole(USER_ROLES.DOCENTE):", typeof checkRole?.(USER_ROL
 console.log("typeof controller.postReservaExamen:", typeof controller?.postReservaExamen);
 
 router.post("/examen", checkRole(USER_ROLES.DOCENTE), controller.postReservaExamen);
+
+// Examen: Aprobar / Rechazar (directivo)
+router.post("/examen/:id/aprobar", checkRole(USER_ROLES.DIRECTIVO), controller.postAprobarExamen);
+router.post("/examen/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRechazarExamen);
+
+// Examen: Cancelar (dueño)
+router.post("/examen/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelarExamen);
+// Examen: Actualizar (dueño)
+router.put("/examen/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizarExamen);
 
 
 

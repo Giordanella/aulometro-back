@@ -4,7 +4,11 @@ import Aula from "../models/aula.js";
 import { RESERVA_ESTADO, normalizarHora } from "../config/reservas.js";
 import sequelize from "../config/db.js";
 import ReservaExamen from "../models/reservaExamen.js";
-export async function verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin }) {
+/**
+ * Verifica conflictos con reservas REGULARES aprobadas para una franja horaria.
+ * @param {{ aulaId: number, diaSemana: number, horaInicio: string, horaFin: string, excluirId?: number }} params
+ */
+export async function verificarConflictos({ aulaId, diaSemana, horaInicio, horaFin, excluirId }) {
   const inicio = normalizarHora(horaInicio);
   const fin = normalizarHora(horaFin);
 
@@ -13,6 +17,7 @@ export async function verificarConflictos({ aulaId, diaSemana, horaInicio, horaF
       aulaId,
       diaSemana,
       estado: RESERVA_ESTADO.APROBADA,
+      ...(excluirId ? { id: { [Op.ne]: excluirId } } : {}),
       [Op.and]: [
         { horaInicio: { [Op.lt]: fin } },
         { horaFin: { [Op.gt]: inicio } },
@@ -154,20 +159,79 @@ export async function cancelarReserva(reservaId, solicitanteId) {
   return reserva.get({ plain: true });
 }
 
-export async function listarPendientes() {
-  const reservas = await Reserva.findAll({
-    where: { estado: RESERVA_ESTADO.PENDIENTE },
-    order: [["creadoEn", "ASC"]],
+export async function actualizarReserva(reservaId, solicitanteId, { diaSemana, horaInicio, horaFin, observaciones }) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes editar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden editar reservas PENDIENTE o APROBADA");
+
+  // Validar conflictos contra otras aprobadas (excluyéndome)
+  const conflictos = await verificarConflictos({
+    aulaId: rPlain.aulaId,
+    diaSemana,
+    horaInicio,
+    horaFin,
+    excluirId: reservaId,
   });
-  return reservas.map(r => r.get({ plain: true }));
+  if (conflictos.length) {
+    const intervalos = conflictos.map((c) => `${c.horaInicio} - ${c.horaFin}`).join(", ");
+    throw new Error(`Conflicto: ya hay reservas aprobadas en: ${intervalos}`);
+  }
+
+  await reserva.update({
+    diaSemana,
+    horaInicio: normalizarHora(horaInicio),
+    horaFin: normalizarHora(horaFin),
+    observaciones,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    aprobadoPorId: null,
+  });
+  return reserva.get({ plain: true });
+}
+
+export async function listarPendientes() {
+  // Traer pendientes de reservas regulares y de examen
+  const [regulares, examenes] = await Promise.all([
+    Reserva.findAll({
+      where: { estado: RESERVA_ESTADO.PENDIENTE },
+      order: [["creadoEn", "ASC"]],
+    }),
+    ReservaExamen.findAll({
+      where: { estado: RESERVA_ESTADO.PENDIENTE },
+      order: [["creadoEn", "ASC"]],
+    }),
+  ]);
+
+  // Unificar en un solo arreglo y ordenar por fecha de creación ascendente
+  const all = [...regulares, ...examenes]
+    .map((r) => r.get({ plain: true }))
+    .sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+
+  return all;
 }
 
 export async function listarMias(userId) {
-  const reservas = await Reserva.findAll({
-    where: { solicitanteId: userId },
-    order: [["creadoEn", "DESC"]],
-  });
-  return reservas.map(r => r.get({ plain: true }));
+  // Traer reservas propias del usuario tanto regulares como de examen
+  const [regulares, examenes] = await Promise.all([
+    Reserva.findAll({
+      where: { solicitanteId: userId },
+      order: [["creadoEn", "DESC"]],
+    }),
+    ReservaExamen.findAll({
+      where: { solicitanteId: userId },
+      order: [["creadoEn", "DESC"]],
+    }),
+  ]);
+
+  // Unificar en un solo arreglo y ordenar por fecha de creación descendente
+  const all = [...regulares, ...examenes]
+    .map((r) => r.get({ plain: true }))
+    .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+
+  return all;
 }
 
 export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin }) {
@@ -177,21 +241,23 @@ export async function disponibilidad({ aulaId, diaSemana, horaInicio, horaFin })
 
 export async function obtenerPorId(id) {
   const r = await Reserva.findByPk(id);
-  return r ? r.get({ plain: true }) : null;
+  if (r) return r.get({ plain: true });
+  const e = await ReservaExamen.findByPk(id);
+  return e ? e.get({ plain: true }) : null;
 }
 
 
 
 
 export async function crearReservaParaExamen(
-  { solicitanteId, aulaId, diaSemana, horaInicio, horaFin, materia, mesa, observaciones },
+  { solicitanteId, aulaId, fecha, horaInicio, horaFin, materia, mesa, observaciones },
   options = {}
 ) {
   const { transaction } = options;
 
   // Validaciones mínimas
-  if (!solicitanteId || !aulaId || diaSemana === undefined || !horaInicio || !horaFin) {
-    throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
+  if (!solicitanteId || !aulaId || !fecha || !horaInicio || !horaFin) {
+    throw new Error("solicitanteId, aulaId, fecha, horaInicio y horaFin son obligatorios");
   }
 
   const ini = normalizarHora(horaInicio);
@@ -203,11 +269,17 @@ export async function crearReservaParaExamen(
   const aula = await Aula.findByPk(aulaId, { transaction });
   if (!aula) throw new Error("Aula no encontrada");
 
+  // Derivar diaSemana desde la fecha (1..7 Lunes..Domingo)
+  const d = new Date(`${fecha}T00:00:00`);
+  const dow = d.getDay(); // 0=Dom..6=Sab
+  const diaSemana = dow === 0 ? 7 : dow; // 1..7
+
   // Crear reserva de EXAMEN (sin verificar conflictos)
   const reservaExamen = await ReservaExamen.create(
     {
       solicitanteId,
       aulaId,
+      fecha,
       diaSemana,
       horaInicio: ini,
       horaFin: fin,
@@ -220,4 +292,105 @@ export async function crearReservaParaExamen(
   );
 
   return reservaExamen.get({ plain: true });
+}
+
+// ============
+// Examen flows
+// ============
+
+export async function verificarConflictosExamen({ aulaId, fecha, horaInicio, horaFin }) {
+  const inicio = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+
+  const existentes = await ReservaExamen.findAll({
+    where: {
+      aulaId,
+      fecha,
+      estado: RESERVA_ESTADO.APROBADA,
+      [Op.and]: [
+        { horaInicio: { [Op.lt]: fin } },
+        { horaFin: { [Op.gt]: inicio } },
+      ],
+    },
+    order: [["horaInicio", "ASC"]],
+  });
+
+  return existentes.map(r => r.get({ plain: true }));
+}
+
+export async function actualizarReservaExamen(reservaId, solicitanteId, { fecha, horaInicio, horaFin, materia, mesa, observaciones }) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes editar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden editar reservas PENDIENTE o APROBADA");
+
+  // Derivar diaSemana desde la fecha
+  const d = new Date(`${fecha}T00:00:00`);
+  const dow = d.getDay(); // 0..6
+  const diaSemana = dow === 0 ? 7 : dow;
+
+  await reserva.update({
+    fecha,
+    diaSemana,
+    horaInicio: normalizarHora(horaInicio),
+    horaFin: normalizarHora(horaFin),
+    materia: materia ?? null,
+    mesa: mesa ?? null,
+    observaciones,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    aprobadoPorId: null,
+  });
+  return reserva.get({ plain: true });
+}
+
+export async function aprobarReservaExamen(reservaId, aprobadorId) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden aprobar reservas en estado PENDIENTE");
+
+  // Revalidar conflictos a la hora de aprobar contra otras de examen
+  const conflictos = await verificarConflictosExamen({
+    aulaId: rPlain.aulaId,
+    fecha: rPlain.fecha,
+    horaInicio: rPlain.horaInicio,
+    horaFin: rPlain.horaFin,
+  });
+  if (conflictos.length) {
+    throw new Error("Conflicto detectado al aprobar: el horario fue ocupado");
+  }
+
+  await reserva.update({ estado: RESERVA_ESTADO.APROBADA, aprobadoPorId: aprobadorId });
+  return reserva.get({ plain: true });
+}
+
+export async function rechazarReservaExamen(reservaId, aprobadorId, motivo) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.estado !== RESERVA_ESTADO.PENDIENTE)
+    throw new Error("Solo se pueden rechazar reservas en estado PENDIENTE");
+  const cambios = { estado: RESERVA_ESTADO.RECHAZADA, aprobadoPorId: aprobadorId };
+  if (motivo) {
+    const obs = rPlain.observaciones ? rPlain.observaciones + " | " : "";
+    cambios.observaciones = obs + `Motivo rechazo: ${motivo}`;
+  }
+  await reserva.update(cambios);
+  return reserva.get({ plain: true });
+}
+
+export async function cancelarReservaExamen(reservaId, solicitanteId) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) throw new Error("Reserva de examen no encontrada");
+  const rPlain = reserva.get({ plain: true });
+  if (rPlain.solicitanteId !== solicitanteId)
+    throw new Error("No puedes cancelar una reserva de otro usuario");
+  if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
+    throw new Error("Solo se pueden cancelar reservas PENDIENTE o APROBADA");
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
 }
