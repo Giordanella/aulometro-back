@@ -11,6 +11,9 @@ router.get("/current", checkRole(USER_ROLES.AUTHENTICATED), userController.getCu
 // GET /users/docentes
 router.get("/docentes", checkRole(USER_ROLES.DIRECTIVO), userController.getDocentes);
 
+// PUT /users/password
+router.put("/password", checkRole(USER_ROLES.AUTHENTICATED), userController.changePassword);
+
 // GET /users/:id
 router.get("/:id", checkRole(USER_ROLES.DIRECTIVO), userController.getUser);
 

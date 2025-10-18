@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import User from "../models/user.js";
 
 export async function findById(userId) {
@@ -48,4 +49,22 @@ export async function listDocentes({ page = 1, pageSize = 20 } = {}) {
     offset,
   });
   return { rows, count, page, pageSize };
+}
+
+export async function changePassword(userId, currentPassword, newPassword) {
+  const user = await User.scope("withPassword").findByPk(userId);
+  if (!user) throw new Error("User not found");
+
+  const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isMatch) throw new Error("Invalid current password");
+
+  const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+  if (isSamePassword) throw new Error("New password must be different");
+
+  user.password = newPassword;
+  await user.save();
+
+  const plain = user.get({ plain: true });
+  delete plain.passwordHash;
+  return plain;
 }
