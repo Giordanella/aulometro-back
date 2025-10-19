@@ -13,9 +13,9 @@
     "testEnvironment": "node",
     "testMatch": [
       "**/__tests__/**/*.[jt]s?(x)",
-      "**/?(*.)+(spec|test).[jt]s?(x)",
-      "**/Tests/**/*.[jt]s?(x)"
-    ]
+      "**/?(*.)+(spec|test).[jt]s?(x)"
+    ],
+    "testPathIgnorePatterns": ["/node_modules/", "/Tests/"]
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
