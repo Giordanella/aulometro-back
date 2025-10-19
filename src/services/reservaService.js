@@ -394,3 +394,41 @@ export async function cancelarReservaExamen(reservaId, solicitanteId) {
   await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
   return reserva.get({ plain: true });
 }
+
+export async function listarReservasAprobadasDeAula(aulaId) {
+  if (!aulaId) throw new Error("aulaId es requerido");
+
+  const id = Number(aulaId);
+  if (Number.isNaN(id)) throw new Error("aulaId inválido");
+
+  return await Reserva.findAll({
+    where: {
+      aulaId: id,
+      estado: RESERVA_ESTADO.APROBADA,
+    },
+    order: [
+      ["diaSemana", "ASC"],
+      ["horaInicio", "ASC"],
+    ],
+  });
+}
+
+export async function listarReservasExamenAprobadasDeAula(aulaId) {
+  if (!aulaId) throw new Error("aulaId es requerido");
+
+  const id = Number(aulaId);
+  if (Number.isNaN(id)) throw new Error("aulaId inválido");
+
+  // Obtener reservas de examen aprobadas para el aula, ordenadas por fecha y horaInicio
+  return await ReservaExamen.findAll({
+    where: {
+      aulaId: id,
+      estado: RESERVA_ESTADO.APROBADA,
+    },
+    order: [
+      // Primero por fecha (DATEONLY), luego por hora de inicio
+      ["fecha", "ASC"],
+      ["horaInicio", "ASC"],
+    ],
+  });
+}
