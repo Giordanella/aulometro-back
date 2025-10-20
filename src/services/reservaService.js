@@ -432,3 +432,31 @@ export async function listarReservasExamenAprobadasDeAula(aulaId) {
     ],
   });
 }
+
+export async function liberarReserva(reservaId) {
+  const reserva = await Reserva.findByPk(reservaId);
+  if (!reserva) {
+    throw new Error("Reserva no encontrada");
+  }
+
+  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+    throw new Error("Solo se pueden liberar reservas aprobadas");
+  }
+
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
+}
+
+export async function liberarReservaExamen(reservaId) {
+  const reserva = await ReservaExamen.findByPk(reservaId);
+  if (!reserva) {
+    throw new Error("Reserva de examen no encontrada");
+  }
+
+  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+    throw new Error("Solo se pueden liberar reservas aprobadas");
+  }
+
+  await reserva.update({ estado: RESERVA_ESTADO.CANCELADA });
+  return reserva.get({ plain: true });
+}
