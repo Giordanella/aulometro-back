@@ -209,3 +209,23 @@ export async function getReservasExamenAprobadasDeAula(req, res) {
     res.status(400).json({ error: error.message });
   }
 }
+
+export async function postLiberar(req, res) {
+  try {
+    const { id } = req.params;
+    const r = await service.liberarReserva(id);
+    res.json(dto.toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function postLiberarExamen(req, res) {
+  try {
+    const { id } = req.params;
+    const r = await service.liberarReservaExamen(id);
+    res.json(dto.toReservaDTO(r));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}

@@ -26,12 +26,14 @@ router.get("/examen/aulas/:numeroAula/aprobadas", checkRole(USER_ROLES.DIRECTIVO
 router.post("/examen/:id/aprobar", checkRole(USER_ROLES.DIRECTIVO), controller.postAprobarExamen);
 router.post("/examen/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRechazarExamen);
 router.post("/examen/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelarExamen);
+router.post("/examen/:id/liberar", checkRole(USER_ROLES.DOCENTE), controller.postLiberarExamen);
 router.put("/examen/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizarExamen);
 
 // --- RUTAS QUE USAN ':id' (más genéricas) ---
 router.post("/:id/aprobar", checkRole(USER_ROLES.DIRECTIVO), controller.postAprobar);
 router.post("/:id/rechazar", checkRole(USER_ROLES.DIRECTIVO), controller.postRechazar);
 router.post("/:id/cancelar", checkRole(USER_ROLES.DOCENTE), controller.postCancelar);
+router.post("/:id/liberar", checkRole(USER_ROLES.DIRECTIVO), controller.postLiberar);
 router.put("/:id", checkRole(USER_ROLES.DOCENTE), controller.putActualizar);
 
 // Obtener por id (al final)
