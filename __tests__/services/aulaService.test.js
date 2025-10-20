@@ -6,15 +6,16 @@ import {
   findById,
   updateById,
   removeById,
+  removeAll,
+  buscarAulas,
+  getByNumero,
 } from "../../src/services/aulaService.js";
 
 beforeAll(async () => {
-  await sequelize.sync();
+  await sequelize.sync({ force: true });
 });
 
-afterAll(async () => {
-  await sequelize.close();
-});
+// No cerramos aquí; otros suites se encargan de cerrar la conexión si hace falta.
 
 let aulaId;
 
@@ -63,10 +64,35 @@ test("updateById actualiza correctamente los campos", async () => {
   expect(aulaPlain.tieneProyector).toBe(true);
 });
 
+test("buscarAulas por filtros básicos", async () => {
+  // Añadir otra aula para tener variedad
+  await createAula({ numero: 201, ubicacion: "Edificio B", capacidad: 28, computadoras: 0, tieneProyector: false });
+  const r1 = await buscarAulas({ ubicacion: "B" });
+  expect(r1.length).toBeGreaterThan(0);
+  const r2 = await buscarAulas({ capacidadMin: 30 });
+  expect(r2.every(a => a.capacidad >= 30)).toBe(true);
+});
+
+test("getByNumero funciona y valida entradas", async () => {
+  const a = await getByNumero(200);
+  expect(a).toBeTruthy();
+  await expect(getByNumero(undefined)).rejects.toThrow(/requerido/);
+  await expect(getByNumero("abc")).rejects.toThrow(/inválido/);
+});
+
 test("removeById elimina el aula", async () => {
   const deleted = await removeById(aulaId);
   expect(deleted).toBe(1);
 
   const existe = await Aula.findByPk(aulaId);
   expect(existe).toBeNull();
+});
+
+test("removeAll borra todo y retorna count", async () => {
+  await createAula({ numero: 300, ubicacion: "P1", capacidad: 20 });
+  const before = await Aula.count();
+  const deletedCount = await removeAll();
+  expect(deletedCount).toBe(before);
+  const after = await Aula.count();
+  expect(after).toBe(0);
 });

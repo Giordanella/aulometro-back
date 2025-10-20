@@ -70,3 +70,13 @@ export async function buscarAulas(filters = {}) {
   return aulas.map(a => a.get({ plain: true }));
 }
 
+export async function getByNumero(numero) {
+  if (numero == null) throw new Error("Número de aula requerido");
+
+  const n = Number(numero);
+  if (Number.isNaN(n)) throw new Error("Número de aula inválido");
+
+  return await Aula.findOne({
+    where: { numero: n },
+  });
+}
