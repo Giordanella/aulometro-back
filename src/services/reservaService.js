@@ -12,6 +12,20 @@ const MAX_RESERVAS_DIA =
     ? Infinity
     : Number(process.env.MAX_RESERVAS_POR_DIA ?? 5);
 
+// Duraciones mínimas y máximas
+const MIN_MINUTOS_REGULAR = 30;
+const MAX_MINUTOS_REGULAR = 8 * 60; // 8 horas
+const MIN_MINUTOS_EXAMEN = 30;
+const MAX_MINUTOS_EXAMEN = 6 * 60; // 6 horas
+
+function minutosEntre(horaInicio, horaFin) {
+  const [hi, mi, si = "00"] = normalizarHora(horaInicio).split(":");
+  const [hf, mf, sf = "00"] = normalizarHora(horaFin).split(":");
+  const ini = Number(hi) * 3600 + Number(mi) * 60 + Number(si);
+  const fin = Number(hf) * 3600 + Number(mf) * 60 + Number(sf);
+  return Math.max(0, Math.trunc((fin - ini) / 60));
+}
+
 function rangoDia(fecha = new Date()) {
   const start = new Date(fecha);
   start.setHours(0, 0, 0, 0);
@@ -77,6 +91,20 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
     if (hechasHoy >= MAX_RESERVAS_DIA) {
       throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
     }
+  }
+
+  // Validar duración mínima y máxima (reservas regulares)
+  const iniNorm = normalizarHora(horaInicio);
+  const finNorm = normalizarHora(horaFin);
+  if (iniNorm >= finNorm) {
+    throw new Error("horaFin debe ser mayor que horaInicio");
+  }
+  const mins = minutosEntre(iniNorm, finNorm);
+  if (mins < MIN_MINUTOS_REGULAR) {
+    throw new Error(`La reserva debe durar al menos ${MIN_MINUTOS_REGULAR} minutos`);
+  }
+  if (mins > MAX_MINUTOS_REGULAR) {
+    throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
   }
 
   const aula = await Aula.findByPk(aulaId);
@@ -219,6 +247,20 @@ export async function actualizarReserva(reservaId, solicitanteId, { diaSemana, h
   if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
     throw new Error("Solo se pueden editar reservas PENDIENTE o APROBADA");
 
+  // Validar duración mínima y máxima (reservas regulares)
+  const iniNorm = normalizarHora(horaInicio);
+  const finNorm = normalizarHora(horaFin);
+  if (iniNorm >= finNorm) {
+    throw new Error("horaFin debe ser mayor que horaInicio");
+  }
+  const mins = minutosEntre(iniNorm, finNorm);
+  if (mins < MIN_MINUTOS_REGULAR) {
+    throw new Error(`La reserva debe durar al menos ${MIN_MINUTOS_REGULAR} minutos`);
+  }
+  if (mins > MAX_MINUTOS_REGULAR) {
+    throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
+  }
+
   // Validar conflictos contra otras aprobadas (excluyéndome)
   const conflictos = await verificarConflictos({
     aulaId: rPlain.aulaId,
@@ -324,6 +366,15 @@ export async function crearReservaParaExamen(
   if (ini === fin) throw new Error("La franja no puede tener duración 0");
   if (ini > fin) throw new Error("horaInicio debe ser menor a horaFin");
 
+  // Validar duración mínima y máxima (reservas de examen)
+  const mins = minutosEntre(ini, fin);
+  if (mins < MIN_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen debe durar al menos ${MIN_MINUTOS_EXAMEN} minutos`);
+  }
+  if (mins > MAX_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
+  }
+
   // Opcional: verificar que el aula exista (si tenés FK, la DB lo hará fallar)
   const aula = await Aula.findByPk(aulaId, { transaction });
   if (!aula) throw new Error("Aula no encontrada");
@@ -390,6 +441,15 @@ export async function actualizarReservaExamen(reservaId, solicitanteId, { fecha,
   const d = new Date(`${fecha}T00:00:00`);
   const dow = d.getDay(); // 0..6
   const diaSemana = dow === 0 ? 7 : dow;
+
+  // Validar duración mínima y máxima (reservas de examen)
+  const mins = minutosEntre(horaInicio, horaFin);
+  if (mins < MIN_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen debe durar al menos ${MIN_MINUTOS_EXAMEN} minutos`);
+  }
+  if (mins > MAX_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
+  }
 
   await reserva.update({
     fecha,
