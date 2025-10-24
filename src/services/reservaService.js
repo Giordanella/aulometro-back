@@ -53,6 +53,36 @@ async function contarReservasDeHoy(solicitanteId) {
   ]);
   return regulares + examenes;
 }
+
+async function existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio, horaFin, excluirId }) {
+  const ini = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+  const where = {
+    solicitanteId,
+    diaSemana,
+    horaInicio: ini,
+    horaFin: fin,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    ...(excluirId ? { id: { [Op.ne]: excluirId } } : {}),
+  };
+  const count = await Reserva.count({ where });
+  return count > 0;
+}
+
+async function existeDuplicadaExamen({ solicitanteId, fecha, horaInicio, horaFin, excluirId }) {
+  const ini = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+  const where = {
+    solicitanteId,
+    fecha,
+    horaInicio: ini,
+    horaFin: fin,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    ...(excluirId ? { id: { [Op.ne]: excluirId } } : {}),
+  };
+  const count = await ReservaExamen.count({ where });
+  return count > 0;
+}
 /**
  * Verifica conflictos con reservas REGULARES aprobadas para una franja horaria.
  * @param {{ aulaId: number, diaSemana: number, horaInicio: string, horaFin: string, excluirId?: number }} params
@@ -105,6 +135,11 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
   }
   if (mins > MAX_MINUTOS_REGULAR) {
     throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
+  }
+
+  // Chequeo de duplicada del mismo usuario en mismo día/horario
+  if (await existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio: iniNorm, horaFin: finNorm, excluirId: undefined })) {
+    throw new Error("Ya tienes una reserva pendiente en ese día y horario");
   }
 
   const aula = await Aula.findByPk(aulaId);
@@ -261,6 +296,11 @@ export async function actualizarReserva(reservaId, solicitanteId, { diaSemana, h
     throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
   }
 
+  // Chequeo de duplicada contra otras pendientes del mismo usuario (excluyéndome)
+  if (await existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio: iniNorm, horaFin: finNorm, excluirId: reservaId })) {
+    throw new Error("Ya tienes una reserva pendiente en ese día y horario");
+  }
+
   // Validar conflictos contra otras aprobadas (excluyéndome)
   const conflictos = await verificarConflictos({
     aulaId: rPlain.aulaId,
@@ -375,6 +415,11 @@ export async function crearReservaParaExamen(
     throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
   }
 
+  // Chequeo de duplicada de examen del mismo usuario en misma fecha/horario
+  if (await existeDuplicadaExamen({ solicitanteId, fecha, horaInicio: ini, horaFin: fin, excluirId: undefined })) {
+    throw new Error("Ya tienes una reserva de examen pendiente en esa fecha y horario");
+  }
+
   // Opcional: verificar que el aula exista (si tenés FK, la DB lo hará fallar)
   const aula = await Aula.findByPk(aulaId, { transaction });
   if (!aula) throw new Error("Aula no encontrada");
@@ -449,6 +494,11 @@ export async function actualizarReservaExamen(reservaId, solicitanteId, { fecha,
   }
   if (mins > MAX_MINUTOS_EXAMEN) {
     throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
+  }
+
+  // Chequeo de duplicada de examen contra otras pendientes (excluyéndome)
+  if (await existeDuplicadaExamen({ solicitanteId, fecha, horaInicio, horaFin, excluirId: reservaId })) {
+    throw new Error("Ya tienes una reserva de examen pendiente en esa fecha y horario");
   }
 
   await reserva.update({
