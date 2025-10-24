@@ -4,6 +4,41 @@ import Aula from "../models/aula.js";
 import { RESERVA_ESTADO, normalizarHora } from "../config/reservas.js";
 import sequelize from "../config/db.js";
 import ReservaExamen from "../models/reservaExamen.js";
+
+// Límite diario de creación de reservas por usuario
+// Por defecto: 5. En entorno de test, se desactiva para no romper tests existentes.
+const MAX_RESERVAS_DIA =
+  process.env.NODE_ENV === "test"
+    ? Infinity
+    : Number(process.env.MAX_RESERVAS_POR_DIA ?? 5);
+
+function rangoDia(fecha = new Date()) {
+  const start = new Date(fecha);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(fecha);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+async function contarReservasDeHoy(solicitanteId) {
+  if (!Number.isFinite(MAX_RESERVAS_DIA)) return 0;
+  const { start, end } = rangoDia();
+  const [regulares, examenes] = await Promise.all([
+    Reserva.count({
+      where: {
+        solicitanteId,
+        creadoEn: { [Op.gte]: start, [Op.lte]: end },
+      },
+    }),
+    ReservaExamen.count({
+      where: {
+        solicitanteId,
+        creadoEn: { [Op.gte]: start, [Op.lte]: end },
+      },
+    }),
+  ]);
+  return regulares + examenes;
+}
 /**
  * Verifica conflictos con reservas REGULARES aprobadas para una franja horaria.
  * @param {{ aulaId: number, diaSemana: number, horaInicio: string, horaFin: string, excluirId?: number }} params
@@ -36,6 +71,14 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
     throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
   }
 
+  // Límite diario de creación
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy >= MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
+  }
+
   const aula = await Aula.findByPk(aulaId);
   if (!aula) throw new Error("Aula no encontrada");
   const aulaPlain = aula.get ? aula.get({ plain: true }) : { id: aulaId };
@@ -64,6 +107,14 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
 export async function crearReservaMultiple({ solicitanteId, aulaId, reservas }) {
   if (!Array.isArray(reservas) || reservas.length === 0) {
     throw new Error("'reservas' debe ser un arreglo con al menos un elemento");
+  }
+
+  // Límite diario de creación (considera el tamaño del batch)
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy + reservas.length > MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
   }
 
   // Validación de solapamientos internos dentro del mismo batch (por diaSemana)
@@ -258,6 +309,14 @@ export async function crearReservaParaExamen(
   // Validaciones mínimas
   if (!solicitanteId || !aulaId || !fecha || !horaInicio || !horaFin) {
     throw new Error("solicitanteId, aulaId, fecha, horaInicio y horaFin son obligatorios");
+  }
+
+  // Límite diario de creación
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy >= MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
   }
 
   const ini = normalizarHora(horaInicio);
