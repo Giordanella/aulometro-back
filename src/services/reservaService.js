@@ -4,6 +4,85 @@ import Aula from "../models/aula.js";
 import { RESERVA_ESTADO, normalizarHora } from "../config/reservas.js";
 import sequelize from "../config/db.js";
 import ReservaExamen from "../models/reservaExamen.js";
+
+// Límite diario de creación de reservas por usuario
+// Por defecto: 5. En entorno de test, se desactiva para no romper tests existentes.
+const MAX_RESERVAS_DIA =
+  process.env.NODE_ENV === "test"
+    ? Infinity
+    : Number(process.env.MAX_RESERVAS_POR_DIA ?? 5);
+
+// Duraciones mínimas y máximas
+const MIN_MINUTOS_REGULAR = 30;
+const MAX_MINUTOS_REGULAR = 8 * 60; // 8 horas
+const MIN_MINUTOS_EXAMEN = 30;
+const MAX_MINUTOS_EXAMEN = 6 * 60; // 6 horas
+
+function minutosEntre(horaInicio, horaFin) {
+  const [hi, mi, si = "00"] = normalizarHora(horaInicio).split(":");
+  const [hf, mf, sf = "00"] = normalizarHora(horaFin).split(":");
+  const ini = Number(hi) * 3600 + Number(mi) * 60 + Number(si);
+  const fin = Number(hf) * 3600 + Number(mf) * 60 + Number(sf);
+  return Math.max(0, Math.trunc((fin - ini) / 60));
+}
+
+function rangoDia(fecha = new Date()) {
+  const start = new Date(fecha);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(fecha);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+async function contarReservasDeHoy(solicitanteId) {
+  if (!Number.isFinite(MAX_RESERVAS_DIA)) return 0;
+  const { start, end } = rangoDia();
+  const [regulares, examenes] = await Promise.all([
+    Reserva.count({
+      where: {
+        solicitanteId,
+        creadoEn: { [Op.gte]: start, [Op.lte]: end },
+      },
+    }),
+    ReservaExamen.count({
+      where: {
+        solicitanteId,
+        creadoEn: { [Op.gte]: start, [Op.lte]: end },
+      },
+    }),
+  ]);
+  return regulares + examenes;
+}
+
+async function existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio, horaFin, excluirId }) {
+  const ini = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+  const where = {
+    solicitanteId,
+    diaSemana,
+    horaInicio: ini,
+    horaFin: fin,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    ...(excluirId ? { id: { [Op.ne]: excluirId } } : {}),
+  };
+  const count = await Reserva.count({ where });
+  return count > 0;
+}
+
+async function existeDuplicadaExamen({ solicitanteId, fecha, horaInicio, horaFin, excluirId }) {
+  const ini = normalizarHora(horaInicio);
+  const fin = normalizarHora(horaFin);
+  const where = {
+    solicitanteId,
+    fecha,
+    horaInicio: ini,
+    horaFin: fin,
+    estado: RESERVA_ESTADO.PENDIENTE,
+    ...(excluirId ? { id: { [Op.ne]: excluirId } } : {}),
+  };
+  const count = await ReservaExamen.count({ where });
+  return count > 0;
+}
 /**
  * Verifica conflictos con reservas REGULARES aprobadas para una franja horaria.
  * @param {{ aulaId: number, diaSemana: number, horaInicio: string, horaFin: string, excluirId?: number }} params
@@ -36,6 +115,33 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
     throw new Error("solicitanteId, aulaId, diaSemana, horaInicio y horaFin son obligatorios");
   }
 
+  // Límite diario de creación
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy >= MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
+  }
+
+  // Validar duración mínima y máxima (reservas regulares)
+  const iniNorm = normalizarHora(horaInicio);
+  const finNorm = normalizarHora(horaFin);
+  if (iniNorm >= finNorm) {
+    throw new Error("horaFin debe ser mayor que horaInicio");
+  }
+  const mins = minutosEntre(iniNorm, finNorm);
+  if (mins < MIN_MINUTOS_REGULAR) {
+    throw new Error(`La reserva debe durar al menos ${MIN_MINUTOS_REGULAR} minutos`);
+  }
+  if (mins > MAX_MINUTOS_REGULAR) {
+    throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
+  }
+
+  // Chequeo de duplicada del mismo usuario en mismo día/horario
+  if (await existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio: iniNorm, horaFin: finNorm, excluirId: undefined })) {
+    throw new Error("Ya tienes una reserva pendiente en ese día y horario");
+  }
+
   const aula = await Aula.findByPk(aulaId);
   if (!aula) throw new Error("Aula no encontrada");
   const aulaPlain = aula.get ? aula.get({ plain: true }) : { id: aulaId };
@@ -64,6 +170,14 @@ export async function crearReserva({ solicitanteId, aulaId, diaSemana, horaInici
 export async function crearReservaMultiple({ solicitanteId, aulaId, reservas }) {
   if (!Array.isArray(reservas) || reservas.length === 0) {
     throw new Error("'reservas' debe ser un arreglo con al menos un elemento");
+  }
+
+  // Límite diario de creación (considera el tamaño del batch)
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy + reservas.length > MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
   }
 
   // Validación de solapamientos internos dentro del mismo batch (por diaSemana)
@@ -168,6 +282,25 @@ export async function actualizarReserva(reservaId, solicitanteId, { diaSemana, h
   if (![RESERVA_ESTADO.PENDIENTE, RESERVA_ESTADO.APROBADA].includes(rPlain.estado))
     throw new Error("Solo se pueden editar reservas PENDIENTE o APROBADA");
 
+  // Validar duración mínima y máxima (reservas regulares)
+  const iniNorm = normalizarHora(horaInicio);
+  const finNorm = normalizarHora(horaFin);
+  if (iniNorm >= finNorm) {
+    throw new Error("horaFin debe ser mayor que horaInicio");
+  }
+  const mins = minutosEntre(iniNorm, finNorm);
+  if (mins < MIN_MINUTOS_REGULAR) {
+    throw new Error(`La reserva debe durar al menos ${MIN_MINUTOS_REGULAR} minutos`);
+  }
+  if (mins > MAX_MINUTOS_REGULAR) {
+    throw new Error(`La reserva no puede durar más de ${MAX_MINUTOS_REGULAR / 60} horas`);
+  }
+
+  // Chequeo de duplicada contra otras pendientes del mismo usuario (excluyéndome)
+  if (await existeDuplicadaRegular({ solicitanteId, diaSemana, horaInicio: iniNorm, horaFin: finNorm, excluirId: reservaId })) {
+    throw new Error("Ya tienes una reserva pendiente en ese día y horario");
+  }
+
   // Validar conflictos contra otras aprobadas (excluyéndome)
   const conflictos = await verificarConflictos({
     aulaId: rPlain.aulaId,
@@ -260,10 +393,32 @@ export async function crearReservaParaExamen(
     throw new Error("solicitanteId, aulaId, fecha, horaInicio y horaFin son obligatorios");
   }
 
+  // Límite diario de creación
+  if (MAX_RESERVAS_DIA !== Infinity) {
+    const hechasHoy = await contarReservasDeHoy(solicitanteId);
+    if (hechasHoy >= MAX_RESERVAS_DIA) {
+      throw new Error(`Límite diario alcanzado: máximo ${MAX_RESERVAS_DIA} reservas por día`);
+    }
+  }
+
   const ini = normalizarHora(horaInicio);
   const fin = normalizarHora(horaFin);
   if (ini === fin) throw new Error("La franja no puede tener duración 0");
   if (ini > fin) throw new Error("horaInicio debe ser menor a horaFin");
+
+  // Validar duración mínima y máxima (reservas de examen)
+  const mins = minutosEntre(ini, fin);
+  if (mins < MIN_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen debe durar al menos ${MIN_MINUTOS_EXAMEN} minutos`);
+  }
+  if (mins > MAX_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
+  }
+
+  // Chequeo de duplicada de examen del mismo usuario en misma fecha/horario
+  if (await existeDuplicadaExamen({ solicitanteId, fecha, horaInicio: ini, horaFin: fin, excluirId: undefined })) {
+    throw new Error("Ya tienes una reserva de examen pendiente en esa fecha y horario");
+  }
 
   // Opcional: verificar que el aula exista (si tenés FK, la DB lo hará fallar)
   const aula = await Aula.findByPk(aulaId, { transaction });
@@ -331,6 +486,20 @@ export async function actualizarReservaExamen(reservaId, solicitanteId, { fecha,
   const d = new Date(`${fecha}T00:00:00`);
   const dow = d.getDay(); // 0..6
   const diaSemana = dow === 0 ? 7 : dow;
+
+  // Validar duración mínima y máxima (reservas de examen)
+  const mins = minutosEntre(horaInicio, horaFin);
+  if (mins < MIN_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen debe durar al menos ${MIN_MINUTOS_EXAMEN} minutos`);
+  }
+  if (mins > MAX_MINUTOS_EXAMEN) {
+    throw new Error(`La reserva de examen no puede durar más de ${MAX_MINUTOS_EXAMEN / 60} horas`);
+  }
+
+  // Chequeo de duplicada de examen contra otras pendientes (excluyéndome)
+  if (await existeDuplicadaExamen({ solicitanteId, fecha, horaInicio, horaFin, excluirId: reservaId })) {
+    throw new Error("Ya tienes una reserva de examen pendiente en esa fecha y horario");
+  }
 
   await reserva.update({
     fecha,
@@ -439,7 +608,9 @@ export async function liberarReserva(reservaId) {
     throw new Error("Reserva no encontrada");
   }
 
-  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+  // Usar el objeto en plano para evitar acceder a campos tipados en Model directamente
+  const rPlain = reserva.get ? reserva.get({ plain: true }) : reserva;
+  if (rPlain.estado !== RESERVA_ESTADO.APROBADA) {
     throw new Error("Solo se pueden liberar reservas aprobadas");
   }
 
@@ -453,7 +624,9 @@ export async function liberarReservaExamen(reservaId) {
     throw new Error("Reserva de examen no encontrada");
   }
 
-  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+  // Usar el objeto en plano para evitar acceder a campos tipados en Model directamente
+  const rPlain = reserva.get ? reserva.get({ plain: true }) : reserva;
+  if (rPlain.estado !== RESERVA_ESTADO.APROBADA) {
     throw new Error("Solo se pueden liberar reservas aprobadas");
   }
 

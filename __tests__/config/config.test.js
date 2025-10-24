@@ -6,6 +6,8 @@ test("normalizarHora convierte HH:mm a HH:mm:ss y preserva HH:mm:ss", () => {
   expect(normalizarHora("08:05")).toBe("08:05:00");
   expect(normalizarHora("08:05:07")).toBe("08:05:07");
   expect(normalizarHora(123)).toBe(123);
+  // formato no reconocido => retorno tal cual
+  expect(normalizarHora("08-05")).toBe("08-05");
 });
 
 test("constantes RESERVA_ESTADO y DIAS_SEMANA", () => {
