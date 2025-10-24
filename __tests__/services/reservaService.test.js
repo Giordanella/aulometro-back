@@ -1,5 +1,6 @@
 /**
  * Tests de crearReserva y validaciones de bordes, más flujos adicionales.
+// @ts-nocheck
  */
 import dotenv from "dotenv";
 dotenv.config();

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import sequelize from "../../src/config/db.js";
 import Aula from "../../src/models/aula.js";
 import User from "../../src/models/user.js";

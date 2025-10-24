@@ -608,7 +608,9 @@ export async function liberarReserva(reservaId) {
     throw new Error("Reserva no encontrada");
   }
 
-  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+  // Usar el objeto en plano para evitar acceder a campos tipados en Model directamente
+  const rPlain = reserva.get ? reserva.get({ plain: true }) : reserva;
+  if (rPlain.estado !== RESERVA_ESTADO.APROBADA) {
     throw new Error("Solo se pueden liberar reservas aprobadas");
   }
 
@@ -622,7 +624,9 @@ export async function liberarReservaExamen(reservaId) {
     throw new Error("Reserva de examen no encontrada");
   }
 
-  if (reserva.estado !== RESERVA_ESTADO.APROBADA) {
+  // Usar el objeto en plano para evitar acceder a campos tipados en Model directamente
+  const rPlain = reserva.get ? reserva.get({ plain: true }) : reserva;
+  if (rPlain.estado !== RESERVA_ESTADO.APROBADA) {
     throw new Error("Solo se pueden liberar reservas aprobadas");
   }
 
