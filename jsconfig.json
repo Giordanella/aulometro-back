@@ -7,5 +7,9 @@
     "moduleResolution": "bundler"
   },
   "include": ["**/*.js"],
-  "exclude": ["node_modules", "aulometro-front"]
+  "exclude": [
+    "node_modules",
+    "aulometro-front",
+    "**/__tests__/**"
+  ]
 }

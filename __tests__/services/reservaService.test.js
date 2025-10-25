@@ -1,5 +1,6 @@
 /**
  * Tests de crearReserva y validaciones de bordes, más flujos adicionales.
+// @ts-nocheck
  */
 import dotenv from "dotenv";
 dotenv.config();
@@ -288,5 +289,88 @@ describe("ReservaService - casos variados", () => {
     expect(confIncluye.length).toBeGreaterThanOrEqual(1);
     const confExcluye = await verificarConflictos({ aulaId: aulaV.id, diaSemana: 1, horaInicio: "10:30", horaFin: "11:30", excluirId: r.id });
     expect(confExcluye.length).toBe(0);
+  });
+
+  test("duplicada regular del mismo usuario es bloqueada; distinto usuario permitida", async () => {
+    const aulaDup = await Aula.create({ numero: 300, ubicacion: "P10", capacidad: 20 });
+    // Crear una reserva pendiente del docente
+    const r1 = await crearReserva({ solicitanteId: docente.id, aulaId: aulaDup.id, diaSemana: 1, horaInicio: "08:00", horaFin: "12:00", observaciones: undefined });
+    expect(r1.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+    // Intentar duplicarla con el mismo usuario
+    await expect(
+      crearReserva({ solicitanteId: docente.id, aulaId: aulaDup.id, diaSemana: 1, horaInicio: "08:00", horaFin: "12:00", observaciones: undefined })
+    ).rejects.toThrow(/ya tienes una reserva pendiente/i);
+
+    // Distinto usuario (directivo) debe poder crear la misma franja
+    const r2 = await crearReserva({ solicitanteId: directivo.id, aulaId: aulaDup.id, diaSemana: 1, horaInicio: "08:00", horaFin: "12:00", observaciones: undefined });
+    expect(r2.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+  });
+
+  test("duplicada de examen del mismo usuario bloqueada; distinto usuario permitida", async () => {
+    const aulaDupE = await Aula.create({ numero: 301, ubicacion: "P10", capacidad: 20 });
+    const fecha = "2026-05-01";
+    // Crear examen pendiente del docente
+    const e1 = await crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaDupE.id, fecha, horaInicio: "10:00", horaFin: "12:00", materia: "Alg", mesa: "1", observaciones: undefined });
+    expect(e1.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+    // Intentar duplicarla con el mismo usuario
+    await expect(
+      crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaDupE.id, fecha, horaInicio: "10:00", horaFin: "12:00", materia: "Alg", mesa: "1", observaciones: undefined })
+    ).rejects.toThrow(/ya tienes una reserva de examen pendiente/i);
+
+    // Distinto usuario puede
+    const e2 = await crearReservaParaExamen({ solicitanteId: directivo.id, aulaId: aulaDupE.id, fecha, horaInicio: "10:00", horaFin: "12:00", materia: "Alg", mesa: "1", observaciones: undefined });
+    expect(e2.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+  });
+
+  test("duración mínima y máxima para regulares", async () => {
+    const aulaD = await Aula.create({ numero: 302, ubicacion: "P11", capacidad: 25 });
+    // Menos de 30 minutos
+    await expect(
+      crearReserva({ solicitanteId: docente.id, aulaId: aulaD.id, diaSemana: 2, horaInicio: "08:00", horaFin: "08:20", observaciones: undefined })
+    ).rejects.toThrow(/al menos 30 minutos/i);
+    // Más de 8 horas
+    await expect(
+      crearReserva({ solicitanteId: docente.id, aulaId: aulaD.id, diaSemana: 2, horaInicio: "08:00", horaFin: "16:30", observaciones: undefined })
+    ).rejects.toThrow(/más de 8 horas/i);
+  });
+
+  test("duración mínima y máxima para examen", async () => {
+    const aulaDE = await Aula.create({ numero: 303, ubicacion: "P11", capacidad: 25 });
+    const fecha = "2026-06-10";
+    // Menos de 30 minutos
+    await expect(
+      crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaDE.id, fecha, horaInicio: "09:00", horaFin: "09:20", materia: "X", mesa: "1", observaciones: undefined })
+    ).rejects.toThrow(/al menos 30 minutos/i);
+    // Más de 6 horas
+    await expect(
+      crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaDE.id, fecha, horaInicio: "08:00", horaFin: "15:00", materia: "X", mesa: "1", observaciones: undefined })
+    ).rejects.toThrow(/más de 6 horas/i);
+  });
+
+  test("una vez aprobada, ya no cuenta como duplicada (regular) pero genera Conflicto", async () => {
+    const aulaReg = await Aula.create({ numero: 304, ubicacion: "P12", capacidad: 20 });
+    const rPend = await crearReserva({ solicitanteId: docente.id, aulaId: aulaReg.id, diaSemana: 3, horaInicio: "08:00", horaFin: "12:00", observaciones: undefined });
+    expect(rPend.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+    const rAprob = await aprobarReserva(rPend.id, directivo.id);
+    expect(rAprob.estado).toBe(RESERVA_ESTADO.APROBADA);
+    // Ahora crear otra igual (mismo usuario, misma franja) no se considera duplicada, pero sí debe
+    // fallar por conflicto contra una reserva APROBADA
+    await expect(
+      crearReserva({ solicitanteId: docente.id, aulaId: aulaReg.id, diaSemana: 3, horaInicio: "08:00", horaFin: "12:00", observaciones: undefined })
+    ).rejects.toThrow(/Conflicto/);
+  });
+
+  test("una vez aprobada, ya no cuenta como duplicada (examen)", async () => {
+    const aulaEx = await Aula.create({ numero: 305, ubicacion: "P12", capacidad: 20 });
+    const fecha = "2026-07-20";
+    const ePend = await crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaEx.id, fecha, horaInicio: "10:00", horaFin: "12:00", materia: "Alg", mesa: "1", observaciones: undefined });
+    expect(ePend.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+    const eAprob = await aprobarReservaExamen(ePend.id, directivo.id);
+    expect(eAprob.estado).toBe(RESERVA_ESTADO.APROBADA);
+    // Crear otra igual ya no se considera duplicada
+    const eNueva = await crearReservaParaExamen({ solicitanteId: docente.id, aulaId: aulaEx.id, fecha, horaInicio: "10:00", horaFin: "12:00", materia: "Alg", mesa: "1", observaciones: undefined });
+    expect(eNueva.estado).toBe(RESERVA_ESTADO.PENDIENTE);
+    // Pero al intentar aprobar la segunda, debe fallar por conflicto
+    await expect(aprobarReservaExamen(eNueva.id, directivo.id)).rejects.toThrow(/Conflicto/);
   });
 });
